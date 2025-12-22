@@ -30,7 +30,7 @@ Clone the repository and build:
 ```bash
 git clone https://github.com/Entze/frost.git
 cd frost
-zig build-exe
+mise run build
 ```
 
 ## Usage
