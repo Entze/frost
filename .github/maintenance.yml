@@ -1,0 +1,21 @@
+name: Maintenance
+on:
+  schedule:
+    - cron: "0 3 * * *"  # Run daily at 3:00 AM UTC
+  workflow_dispatch:
+
+permissions:
+  actions: write
+
+jobs:
+  purge-cache:
+    name: Purge Cache
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: MyAlbum/purge-cache@v2
+        with:
+          accessed: true
+          created: false
+          max-age: 259200  # 3 days in seconds
+          debug: true
