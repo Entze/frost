@@ -1,0 +1,55 @@
+amends "package://github.com/jdx/hk/releases/download/v1.28.0/hk@1.28.0#/Config.pkl"
+import "package://github.com/jdx/hk/releases/download/v1.28.0/hk@1.28.0#/Builtins.pkl"
+
+local formatters = new Mapping<String, Step> {
+    ["mise"] = Builtins.mise
+    ["zig-format"] {
+        glob = List("**/*.zig", "**/*.zon")
+        check = "zig fmt --check {{files}}"
+        fix = "zig fmt {{files}}"
+    }
+    ["fix-byte-order-marker"] = Builtins.fix_byte_order_marker
+    ["mixed-line-ending"] = Builtins.mixed_line_ending
+    ["newlines"] = Builtins.newlines
+    ["trailing-whitespace"] = Builtins.trailing_whitespace
+}
+
+local linters = new Mapping<String, Step> {
+    ["pkl"] = Builtins.pkl
+    ["zig-build"] {
+        glob = List("**/*.zig", "**/*.zon")
+        check = "zig build"
+    }
+}
+
+local formatters_group = new Group {
+    steps = formatters
+}
+
+local linters_group = new Group {
+    steps = linters
+}
+
+hooks {
+    ["pre-commit"] {
+        fix = true
+        stash = "git"
+        steps {
+            ["formatters"] = formatters_group
+            ["linters"] = linters_group
+        }
+    }
+    ["fix"] {
+        fix = true
+        steps {
+            ["formatters"] = formatters_group
+            ["linters"] = linters_group
+        }
+    }
+    ["check"] {
+        steps {
+            ["formatters"] = formatters_group
+            ["linters"] = linters_group
+        }
+    }
+}

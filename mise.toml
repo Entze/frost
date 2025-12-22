@@ -1,0 +1,46 @@
+[tools]
+hk = "1.28.0"
+zig = "0.15.2"
+pkl = "0.30.2"
+
+[tasks.build]
+run = "zig build"
+
+[tasks.test]
+depends = ["test:*"]
+
+[tasks."test:zig"]
+depends = ["test:zig:*"]
+
+[tasks."test:zig:root"]
+run = "zig test src/root.zig"
+
+[tasks."test:zig:main"]
+run = "zig test src/main.zig"
+
+[tasks.check]
+usage = '''
+arg "[paths]" var=#true
+flag "--all"
+'''
+run = '''
+{% if usage.all %}
+hk check --all
+{% else %}
+hk check ${usage_paths}
+{% endif %}
+'''
+
+[tasks.fix]
+usage = '''
+arg "[paths]" var=#true
+flag "--all"
+'''
+run = '''
+{% if usage.all %}
+hk fix --all
+{% else %}
+hk fix ${usage_paths}
+{% endif %}
+'''
+
