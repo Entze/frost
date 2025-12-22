@@ -20,6 +20,12 @@ local linters = new Mapping<String, Step> {
         glob = List("**/*.zig", "**/*.zon")
         check = "zig build"
     }
+    ["actionlint"] = Builtins.actionlint
+    ["action-validator"] {
+        glob = List(".github/workflows/*.yml", ".github/workflows/*.yaml")
+        batch = true
+        check = "action-validator {{ files }}"
+    }
 }
 
 local formatters_group = new Group {
