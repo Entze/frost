@@ -1,5 +1,6 @@
 //! By convention, root.zig is the root source file when making a library.
 const std = @import("std");
+const Allocator = std.mem.Allocator;
 
 pub fn bufferedPrint() !void {
     // Stdout is for the actual output of your application, for example if you
@@ -18,6 +19,273 @@ pub fn add(a: i32, b: i32) i32 {
     return a + b;
 }
 
+/// Error returned when a literal value is out of bounds.
+/// A literal is out of bounds when its absolute value exceeds the variable count.
+pub const LiteralOutOfBounds = error{LiteralOutOfBounds};
+
+/// Error returned when attempting to add a literal to a clause when all clauses have been filled.
+pub const ClauseOutOfBounds = error{ClauseOutOfBounds};
+
+/// Error set for add_literal operation combining bounds checking and allocation errors.
+pub const AddLiteralError = LiteralOutOfBounds || ClauseOutOfBounds || Allocator.Error;
+
+/// Represents a CNF (Conjunctive Normal Form) program.
+///
+/// A CNF program is a conjunction of clauses, where each clause is a disjunction of literals.
+/// Literals are represented as non-zero i32 values where the sign indicates negation.
+/// Literal 0 is used as a clause terminator during construction.
+///
+/// Example usage:
+/// ```
+/// const std = @import("std");
+/// const allocator = std.testing.allocator;
+///
+/// var program = try CnfProgram.init(allocator, 3, 2);
+/// defer program.deinit();
+///
+/// try program.add_literal(1);   // Add literal 1 to first clause
+/// try program.add_literal(-2);  // Add literal -2 to first clause
+/// try program.add_literal(0);   // Terminate first clause
+/// try program.add_literal(3);   // Add literal 3 to second clause
+/// try program.add_literal(0);   // Terminate second clause
+/// ```
+pub const CnfProgram = struct {
+    allocator: Allocator,
+    variable_count: u31,
+    clause_count: u128,
+    clauses: []std.ArrayListAligned(i32, null),
+    active_clause_index: u128,
+
+    const Self = @This();
+
+    /// Initializes a new CNF program with the specified variable and clause counts.
+    ///
+    /// Preconditions:
+    /// - allocator must be valid
+    /// - variable_count must be > 0
+    /// - clause_count must be > 0
+    ///
+    /// Postconditions:
+    /// - Returns initialized CnfProgram with empty clauses
+    /// - All clauses are allocated and empty
+    /// - active_clause_index is set to 0
+    /// - Caller owns returned memory and must call deinit()
+    ///
+    /// Ownership:
+    /// - Returned CnfProgram owns all allocated memory
+    ///
+    /// Lifetime:
+    /// - Valid until deinit() is called
+    pub fn init(allocator: Allocator, variable_count: u31, clause_count: u128) Allocator.Error!Self {
+        // Preconditions
+        std.debug.assert(variable_count > 0);
+        std.debug.assert(clause_count > 0);
+
+        const clause_count_usize = @as(usize, @intCast(clause_count));
+        const clauses = try allocator.alloc(std.ArrayListAligned(i32, null), clause_count_usize);
+        errdefer allocator.free(clauses);
+
+        // Initialize all clauses as empty
+        var initialized_count: usize = 0;
+        errdefer {
+            var i: usize = 0;
+            while (i < initialized_count) : (i += 1) {
+                clauses[i].deinit(allocator);
+            }
+        }
+
+        while (initialized_count < clause_count_usize) : (initialized_count += 1) {
+            clauses[initialized_count] = .empty;
+        }
+
+        const result = Self{
+            .allocator = allocator,
+            .variable_count = variable_count,
+            .clause_count = clause_count,
+            .clauses = clauses,
+            .active_clause_index = 0,
+        };
+
+        // Postconditions
+        std.debug.assert(result.clauses.len == clause_count_usize);
+        std.debug.assert(result.active_clause_index == 0);
+
+        return result;
+    }
+
+    /// Releases all memory allocated by the CNF program.
+    ///
+    /// Preconditions:
+    /// - self must be initialized (init() was called successfully)
+    /// - self must not have been deinitialized already
+    ///
+    /// Postconditions:
+    /// - All memory is freed
+    /// - self is poisoned with undefined values
+    pub fn deinit(self: *Self) void {
+        // Preconditions
+        const clause_count_usize = @as(usize, @intCast(self.clause_count));
+        std.debug.assert(self.clauses.len == clause_count_usize);
+
+        // Deinitialize all clauses
+        for (self.clauses) |*clause| {
+            clause.deinit(self.allocator);
+        }
+
+        self.allocator.free(self.clauses);
+
+        // Poison memory
+        self.* = undefined;
+    }
+
+    /// Adds a literal to the active clause or terminates the current clause.
+    ///
+    /// When literal is 0, the current clause is terminated and the next clause becomes active.
+    /// Non-zero literals are appended to the active clause after bounds validation.
+    ///
+    /// Preconditions:
+    /// - self must be initialized
+    /// - If literal != 0: abs(literal) must be <= variable_count
+    /// - active_clause_index must be < clause_count
+    ///
+    /// Postconditions:
+    /// - If literal == 0: active_clause_index is incremented
+    /// - If literal != 0: literal is appended to active clause
+    ///
+    /// Returns:
+    /// - AddLiteralError if bounds are violated or allocation fails
+    pub fn add_literal(self: *Self, literal: i32) AddLiteralError!void {
+        // Preconditions
+        const clause_count_usize = @as(usize, @intCast(self.clause_count));
+        std.debug.assert(self.clauses.len == clause_count_usize);
+
+        if (literal == 0) {
+            // Terminate current clause and move to next
+            if (self.active_clause_index >= self.clause_count) {
+                return ClauseOutOfBounds.ClauseOutOfBounds;
+            }
+            self.active_clause_index += 1;
+        } else {
+            // Validate literal is in bounds
+            const abs_literal = if (literal < 0) -literal else literal;
+            if (abs_literal > self.variable_count) {
+                return LiteralOutOfBounds.LiteralOutOfBounds;
+            }
+
+            // Check active clause is valid
+            if (self.active_clause_index >= self.clause_count) {
+                return ClauseOutOfBounds.ClauseOutOfBounds;
+            }
+
+            // Append to active clause
+            const active_index = @as(usize, @intCast(self.active_clause_index));
+            try self.clauses[active_index].append(self.allocator, literal);
+        }
+
+        // Postconditions checked by assertions in logic above
+        defer std.debug.assert(self.active_clause_index <= self.clause_count);
+    }
+};
+
 test "basic add functionality" {
     try std.testing.expect(add(3, 7) == 10);
+}
+
+test "CnfProgram: init and deinit with no memory leaks" {
+    const allocator = std.testing.allocator;
+
+    var program = try CnfProgram.init(allocator, 10, 5);
+    defer program.deinit();
+
+    try std.testing.expectEqual(@as(u31, 10), program.variable_count);
+    try std.testing.expectEqual(@as(u128, 5), program.clause_count);
+    try std.testing.expectEqual(@as(usize, 5), program.clauses.len);
+}
+
+test "CnfProgram: add_literal with allocation failure" {
+    var failing_allocator = std.testing.FailingAllocator.init(std.testing.allocator, .{ .fail_index = 0 });
+    const allocator = failing_allocator.allocator();
+
+    // Try to init with failing allocator - should fail on first allocation
+    const result = CnfProgram.init(allocator, 10, 5);
+    try std.testing.expectError(error.OutOfMemory, result);
+}
+
+test "CnfProgram: add literals and create clauses" {
+    const allocator = std.testing.allocator;
+
+    var program = try CnfProgram.init(allocator, 3, 2);
+    defer program.deinit();
+
+    // Add first clause: {1}
+    try program.add_literal(1);
+    try program.add_literal(0); // Terminate first clause
+
+    // Add second clause: {-2}
+    try program.add_literal(-2);
+
+    // Verify first clause
+    try std.testing.expectEqual(@as(usize, 1), program.clauses[0].items.len);
+    try std.testing.expectEqual(@as(i32, 1), program.clauses[0].items[0]);
+
+    // Verify second clause
+    try std.testing.expectEqual(@as(usize, 1), program.clauses[1].items.len);
+    try std.testing.expectEqual(@as(i32, -2), program.clauses[1].items[0]);
+}
+
+test "CnfProgram: literal out of bounds" {
+    const allocator = std.testing.allocator;
+
+    var program = try CnfProgram.init(allocator, 3, 2);
+    defer program.deinit();
+
+    // Try to add literal with absolute value > variable_count
+    const result = program.add_literal(4);
+    try std.testing.expectError(error.LiteralOutOfBounds, result);
+
+    // Try negative literal out of bounds
+    const result2 = program.add_literal(-4);
+    try std.testing.expectError(error.LiteralOutOfBounds, result2);
+}
+
+test "CnfProgram: clause out of bounds" {
+    const allocator = std.testing.allocator;
+
+    var program = try CnfProgram.init(allocator, 3, 2);
+    defer program.deinit();
+
+    // Terminate first clause
+    try program.add_literal(0);
+
+    // Terminate second clause
+    try program.add_literal(0);
+
+    // Try to terminate third clause (doesn't exist)
+    const result = program.add_literal(0);
+    try std.testing.expectError(error.ClauseOutOfBounds, result);
+}
+
+test "CnfProgram: typical usage pattern" {
+    const allocator = std.testing.allocator;
+
+    // Create program with 3 variables and 2 clauses
+    var program = try CnfProgram.init(allocator, 3, 2);
+    defer program.deinit();
+
+    // First clause: (1 OR -2)
+    try program.add_literal(1);
+    try program.add_literal(-2);
+    try program.add_literal(0);
+
+    // Second clause: (3)
+    try program.add_literal(3);
+    try program.add_literal(0);
+
+    // Verify the structure
+    try std.testing.expectEqual(@as(usize, 2), program.clauses[0].items.len);
+    try std.testing.expectEqual(@as(i32, 1), program.clauses[0].items[0]);
+    try std.testing.expectEqual(@as(i32, -2), program.clauses[0].items[1]);
+
+    try std.testing.expectEqual(@as(usize, 1), program.clauses[1].items.len);
+    try std.testing.expectEqual(@as(i32, 3), program.clauses[1].items[0]);
 }
