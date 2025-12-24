@@ -169,11 +169,6 @@ pub const CnfProgram = struct {
 
         // Save old values for postconditions
         const clause_old_index = self.clause_active_index;
-        const active_index = @as(usize, @intCast(self.clause_active_index));
-        const clause_active_old_len = if (self.clause_active_index < self.clause_count)
-            self.clauses[active_index].items.len
-        else
-            0;
 
         // Postconditions
         defer assert(self.clause_active_index <= self.clause_count);
@@ -196,6 +191,10 @@ pub const CnfProgram = struct {
             if (self.clause_active_index >= self.clause_count) {
                 return CnfProgramError.ClauseOutOfBounds;
             }
+
+            // Compute index and save old length after validation
+            const active_index = @as(usize, @intCast(self.clause_active_index));
+            const clause_active_old_len = self.clauses[active_index].items.len;
 
             // Append to active clause
             try self.clauses[active_index].append(self.allocator, literal);
@@ -327,8 +326,8 @@ test "CnfProgram: rejects clause_count larger than usize" {
     const too_large: u128 = max_usize_as_u128 + 1;
 
     // Due to precondition log2(clause_count) <= variable_count, we need a large enough variable_count
-    // For usize.max + 1, we need at least 64 or 32 variables depending on platform
-    const required_bits = std.math.log2(too_large);
+    // Calculate required bits more carefully to avoid overflow
+    const required_bits = if (too_large <= 1) 0 else std.math.log2_int(u128, too_large);
     const variable_count = @as(u31, @intCast(@min(required_bits, std.math.maxInt(u31))));
 
     const result = CnfProgram.init(allocator, variable_count, too_large);
