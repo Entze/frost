@@ -85,15 +85,8 @@ pub const CnfProgram = struct {
         const clauses = try allocator.alloc(std.ArrayListAligned(i32, null), clause_count_usize);
         errdefer allocator.free(clauses);
 
-        // Initialize all clauses as empty
+        // Initialize all clauses as empty - .empty doesn't allocate so no cleanup needed
         var initialized_count: usize = 0;
-        errdefer {
-            var i: usize = 0;
-            while (i < initialized_count) : (i += 1) {
-                clauses[i].deinit(allocator);
-            }
-        }
-
         while (initialized_count < clause_count_usize) : (initialized_count += 1) {
             clauses[initialized_count] = .empty;
         }
@@ -168,8 +161,8 @@ pub const CnfProgram = struct {
             // Postcondition for this path
             std.debug.assert(self.active_clause_index <= self.clause_count);
         } else {
-            // Validate literal is in bounds - use @abs to avoid overflow
-            const abs_literal = @abs(literal);
+            // Validate literal is in bounds - use i64 cast to safely handle minInt
+            const abs_literal = @abs(@as(i64, literal));
             if (abs_literal > self.variable_count) {
                 return LiteralOutOfBounds.LiteralOutOfBounds;
             }
