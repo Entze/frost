@@ -165,9 +165,11 @@ pub const CnfProgram = struct {
                 return ClauseOutOfBounds.ClauseOutOfBounds;
             }
             self.active_clause_index += 1;
+            // Postcondition for this path
+            std.debug.assert(self.active_clause_index <= self.clause_count);
         } else {
-            // Validate literal is in bounds
-            const abs_literal = if (literal < 0) -literal else literal;
+            // Validate literal is in bounds - use @abs to avoid overflow
+            const abs_literal = @abs(literal);
             if (abs_literal > self.variable_count) {
                 return LiteralOutOfBounds.LiteralOutOfBounds;
             }
@@ -180,10 +182,9 @@ pub const CnfProgram = struct {
             // Append to active clause
             const active_index = @as(usize, @intCast(self.active_clause_index));
             try self.clauses[active_index].append(self.allocator, literal);
+            // Postcondition for this path
+            std.debug.assert(self.active_clause_index < self.clause_count);
         }
-
-        // Postconditions checked by assertions in logic above
-        defer std.debug.assert(self.active_clause_index <= self.clause_count);
     }
 };
 
@@ -288,4 +289,16 @@ test "CnfProgram: typical usage pattern" {
 
     try std.testing.expectEqual(@as(usize, 1), program.clauses[1].items.len);
     try std.testing.expectEqual(@as(i32, 3), program.clauses[1].items[0]);
+}
+
+test "CnfProgram: handles minInt literal safely" {
+    const allocator = std.testing.allocator;
+
+    // Create program where minInt is out of bounds
+    var program = try CnfProgram.init(allocator, 100, 1);
+    defer program.deinit();
+
+    // minInt absolute value exceeds u31 range, should be out of bounds
+    const result = program.add_literal(std.math.minInt(i32));
+    try std.testing.expectError(error.LiteralOutOfBounds, result);
 }
