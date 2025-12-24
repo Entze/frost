@@ -81,14 +81,18 @@ pub const CnfProgram = struct {
         std.debug.assert(variable_count > 0);
         std.debug.assert(clause_count > 0);
 
+        // Check if clause_count fits in usize - if not, we can't allocate that many anyway
+        if (clause_count > std.math.maxInt(usize)) {
+            return error.OutOfMemory;
+        }
+
         const clause_count_usize = @as(usize, @intCast(clause_count));
         const clauses = try allocator.alloc(std.ArrayListAligned(i32, null), clause_count_usize);
         errdefer allocator.free(clauses);
 
         // Initialize all clauses as empty - .empty doesn't allocate so no cleanup needed
-        var initialized_count: usize = 0;
-        while (initialized_count < clause_count_usize) : (initialized_count += 1) {
-            clauses[initialized_count] = .empty;
+        for (clauses) |*clause| {
+            clause.* = .empty;
         }
 
         const result = Self{
@@ -294,4 +298,15 @@ test "CnfProgram: handles minInt literal safely" {
     // minInt absolute value exceeds u31 range, should be out of bounds
     const result = program.add_literal(std.math.minInt(i32));
     try std.testing.expectError(error.LiteralOutOfBounds, result);
+}
+
+test "CnfProgram: rejects clause_count larger than usize" {
+    const allocator = std.testing.allocator;
+
+    // Try to create program with clause_count > usize.max (if possible on this platform)
+    const max_usize_as_u128: u128 = std.math.maxInt(usize);
+    const too_large: u128 = max_usize_as_u128 + 1;
+
+    const result = CnfProgram.init(allocator, 10, too_large);
+    try std.testing.expectError(error.OutOfMemory, result);
 }
