@@ -1,6 +1,7 @@
 //! By convention, root.zig is the root source file when making a library.
 const std = @import("std");
 const Allocator = std.mem.Allocator;
+const assert = std.debug.assert;
 
 pub fn bufferedPrint() !void {
     // Stdout is for the actual output of your application, for example if you
@@ -19,15 +20,16 @@ pub fn add(a: i32, b: i32) i32 {
     return a + b;
 }
 
-/// Error returned when a literal value is out of bounds.
-/// A literal is out of bounds when its absolute value exceeds the variable count.
-pub const LiteralOutOfBounds = error{LiteralOutOfBounds};
-
-/// Error returned when attempting to add a literal to a clause when all clauses have been filled.
-pub const ClauseOutOfBounds = error{ClauseOutOfBounds};
+/// Error set for CNF program operations.
+/// - LiteralOutOfBounds: A literal's absolute value exceeds the variable count.
+/// - ClauseOutOfBounds: Attempting to add a literal when all clauses have been filled.
+pub const CnfProgramError = error{
+    LiteralOutOfBounds,
+    ClauseOutOfBounds,
+};
 
 /// Error set for add_literal operation combining bounds checking and allocation errors.
-pub const AddLiteralError = LiteralOutOfBounds || ClauseOutOfBounds || Allocator.Error;
+pub const AddLiteralError = CnfProgramError || Allocator.Error;
 
 /// Represents a CNF (Conjunctive Normal Form) program.
 ///
@@ -54,7 +56,7 @@ pub const CnfProgram = struct {
     variable_count: u31,
     clause_count: u128,
     clauses: []std.ArrayListAligned(i32, null),
-    active_clause_index: u128,
+    clause_active_index: u128,
 
     const Self = @This();
 
@@ -62,13 +64,14 @@ pub const CnfProgram = struct {
     ///
     /// Preconditions:
     /// - allocator must be valid
-    /// - variable_count must be > 0
-    /// - clause_count must be > 0
+    /// - if (variable_count > 0) then clause_count > 0
+    /// - if (clause_count > 0) then variable_count > 0
+    /// - log2(clause_count) <= variable_count (there are only 2^variable_count possible clauses)
     ///
     /// Postconditions:
     /// - Returns initialized CnfProgram with empty clauses
-    /// - All clauses are allocated and empty
-    /// - active_clause_index is set to 0
+    /// - All clauses are allocated and have length 0
+    /// - clause_active_index is set to 0
     /// - Caller owns returned memory and must call deinit()
     ///
     /// Ownership:
@@ -78,8 +81,9 @@ pub const CnfProgram = struct {
     /// - Valid until deinit() is called
     pub fn init(allocator: Allocator, variable_count: u31, clause_count: u128) Allocator.Error!Self {
         // Preconditions
-        std.debug.assert(variable_count > 0);
-        std.debug.assert(clause_count > 0);
+        if (variable_count > 0) assert(clause_count > 0);
+        if (clause_count > 0) assert(variable_count > 0);
+        assert(std.math.log2(clause_count) <= variable_count);
 
         // Check if clause_count fits in usize - if not, we can't allocate that many anyway
         if (clause_count > std.math.maxInt(usize)) {
@@ -100,12 +104,17 @@ pub const CnfProgram = struct {
             .variable_count = variable_count,
             .clause_count = clause_count,
             .clauses = clauses,
-            .active_clause_index = 0,
+            .clause_active_index = 0,
         };
 
         // Postconditions
-        std.debug.assert(result.clauses.len == clause_count_usize);
-        std.debug.assert(result.active_clause_index == 0);
+        defer assert(result.clauses.len == clause_count_usize);
+        defer assert(result.clause_active_index == 0);
+        defer {
+            for (result.clauses) |clause| {
+                assert(clause.items.len == 0);
+            }
+        }
 
         return result;
     }
@@ -122,7 +131,7 @@ pub const CnfProgram = struct {
     pub fn deinit(self: *Self) void {
         // Preconditions
         const clause_count_usize = @as(usize, @intCast(self.clause_count));
-        std.debug.assert(self.clauses.len == clause_count_usize);
+        assert(self.clauses.len == clause_count_usize);
 
         // Deinitialize all clauses
         for (self.clauses) |*clause| {
@@ -133,6 +142,9 @@ pub const CnfProgram = struct {
 
         // Poison memory
         self.* = undefined;
+
+        // Postcondition: Note - cannot assert self.* == undefined in Zig
+        // as comparison with undefined is not possible
     }
 
     /// Adds a literal to the active clause or terminates the current clause.
@@ -142,45 +154,52 @@ pub const CnfProgram = struct {
     ///
     /// Preconditions:
     /// - self must be initialized
-    /// - If literal != 0: abs(literal) must be <= variable_count
-    /// - active_clause_index must be < clause_count
     ///
     /// Postconditions:
-    /// - If literal == 0: active_clause_index is incremented
-    /// - If literal != 0: literal is appended to active clause
+    /// - clause_active_index <= clause_count
+    /// - if (literal == 0 and no error) then clause_old_index + 1 == clause_active_index
+    /// - if (literal != 0 and no error) then clause_active_old_len + 1 == clauses[clause_active_index].len
     ///
     /// Returns:
     /// - AddLiteralError if bounds are violated or allocation fails
     pub fn add_literal(self: *Self, literal: i32) AddLiteralError!void {
         // Preconditions
         const clause_count_usize = @as(usize, @intCast(self.clause_count));
-        std.debug.assert(self.clauses.len == clause_count_usize);
+        assert(self.clauses.len == clause_count_usize);
+
+        // Save old values for postconditions
+        const clause_old_index = self.clause_active_index;
+        const active_index = @as(usize, @intCast(self.clause_active_index));
+        const clause_active_old_len = if (self.clause_active_index < self.clause_count)
+            self.clauses[active_index].items.len
+        else
+            0;
+
+        // Postconditions
+        defer assert(self.clause_active_index <= self.clause_count);
 
         if (literal == 0) {
             // Terminate current clause and move to next
-            if (self.active_clause_index >= self.clause_count) {
-                return ClauseOutOfBounds.ClauseOutOfBounds;
+            if (self.clause_active_index >= self.clause_count) {
+                return CnfProgramError.ClauseOutOfBounds;
             }
-            self.active_clause_index += 1;
-            // Postcondition for this path
-            std.debug.assert(self.active_clause_index <= self.clause_count);
+            self.clause_active_index += 1;
+            defer assert(clause_old_index + 1 == self.clause_active_index);
         } else {
             // Validate literal is in bounds - use i64 cast to safely handle minInt
             const abs_literal = @abs(@as(i64, literal));
             if (abs_literal > self.variable_count) {
-                return LiteralOutOfBounds.LiteralOutOfBounds;
+                return CnfProgramError.LiteralOutOfBounds;
             }
 
             // Check active clause is valid
-            if (self.active_clause_index >= self.clause_count) {
-                return ClauseOutOfBounds.ClauseOutOfBounds;
+            if (self.clause_active_index >= self.clause_count) {
+                return CnfProgramError.ClauseOutOfBounds;
             }
 
             // Append to active clause
-            const active_index = @as(usize, @intCast(self.active_clause_index));
             try self.clauses[active_index].append(self.allocator, literal);
-            // Postcondition for this path
-            std.debug.assert(self.active_clause_index < self.clause_count);
+            defer assert(clause_active_old_len + 1 == self.clauses[active_index].items.len);
         }
     }
 };
@@ -307,6 +326,11 @@ test "CnfProgram: rejects clause_count larger than usize" {
     const max_usize_as_u128: u128 = std.math.maxInt(usize);
     const too_large: u128 = max_usize_as_u128 + 1;
 
-    const result = CnfProgram.init(allocator, 10, too_large);
+    // Due to precondition log2(clause_count) <= variable_count, we need a large enough variable_count
+    // For usize.max + 1, we need at least 64 or 32 variables depending on platform
+    const required_bits = std.math.log2(too_large);
+    const variable_count = @as(u31, @intCast(@min(required_bits, std.math.maxInt(u31))));
+
+    const result = CnfProgram.init(allocator, variable_count, too_large);
     try std.testing.expectError(error.OutOfMemory, result);
 }
