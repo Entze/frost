@@ -62,7 +62,7 @@ Coding standards for safety-critical Zig development, synthesizing official Zig 
 - Use `assert()` for development-time checks
 - Use explicit error returns for runtime validation
 - Assert preconditions at function entry
-- Assert postconditions before return with `defer assert()`
+- Assert postconditions if possible after preconditions or before return. Use `defer assert()`
 - Assert invariants in loop bodies
 - More assertions for complex logic
 
@@ -111,6 +111,7 @@ Coding standards for safety-critical Zig development, synthesizing official Zig 
 - **All non-void return values must be used** (Zig enforces for error unions)
 - **Explicitly acknowledge intentional discards** with `_ = value;`
 - **Document why return values are ignored** in comments
+- Only catch errors if they can be handled
 - **Prefer handling errors** over ignoring them
 - Use `catch` for error handling or propagate with `try`
 
@@ -142,34 +143,6 @@ Coding standards for safety-critical Zig development, synthesizing official Zig 
 - **Use `anytype` parameters** with comptime interface checking
 - **Explicit switch statements** for dispatch
 - Zig's comptime provides better alternatives than function pointers
-
-## Compile-Time vs Runtime Bounds
-
-### When to Use Compile-Time Bounds
-
-- Size is fixed by design (e.g., cryptographic block size)
-- Buffer sizes are known constants
-- Working with fixed-size protocols
-- Maximum performance is critical
-- **Advantages:** Strongest safety, verified by compiler, zero overhead, optimal codegen
-- **Disadvantages:** Less flexible, requires size known at compile-time, potential code bloat
-
-### When to Use Runtime Bounds
-
-- Size comes from user input or external source
-- Need to handle variable-length data
-- Writing library code with flexible APIs
-- Size is data-dependent
-- **Advantages:** More flexible, handles dynamic sizes, more reusable
-- **Disadvantages:** Requires validation, small overhead, must document max limits
-
-### Hybrid Approach (Recommended)
-
-- **Public APIs:** Runtime bounds for flexibility
-- **Internal implementation:** Compile-time bounds for safety and performance
-- **Document maximum limits** for runtime bounds
-- **Validate at API boundaries**
-- **Use compile-time sized buffers internally** when possible
 
 ## References
 
