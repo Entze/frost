@@ -296,3 +296,157 @@ test "Character: match special characters" {
     try std.testing.expectEqual(@as(usize, 1), result2.bytes_consumed);
     try std.testing.expectEqualStrings("5", result2.groups[0]);
 }
+
+/// CharacterClass pattern that matches any character in a set (regex `[ ]`).
+///
+/// Since patterns are defined at compile time, the character set is stored
+/// as a compile-time array.
+pub fn CharacterClass(comptime size: usize) type {
+    return struct {
+        characters: [size]u8,
+
+        const Self = @This();
+
+        /// Matches any character from the character set.
+        ///
+        /// Preconditions:
+        /// - input must be valid UTF-8 slice
+        /// - characters array contains at least one character (size > 0)
+        ///
+        /// Postconditions:
+        /// - If input is empty or first character not in set, returns Match with 0 bytes consumed
+        /// - If first character in set, returns Match with 1 byte consumed and groups[0] = matched character
+        ///
+        /// Ownership:
+        /// - input slice is borrowed, not owned
+        /// - returned Match.groups references input memory
+        ///
+        /// Lifetime:
+        /// - input must remain valid for lifetime of returned Match
+        pub fn match(self: Self, input: []const u8) Match {
+            // Preconditions
+            assert(size > 0);
+
+            if (input.len == 0) {
+                // No input to match
+                const empty_groups: []const []const u8 = &[_][]const u8{};
+                const result = Match.init(0, empty_groups);
+
+                // Postconditions
+                defer assert(result.bytes_consumed == 0);
+                defer assert(result.groups.len == 0);
+
+                return result;
+            }
+
+            const first_char = input[0];
+
+            // Check if first character is in the set
+            // Loop has determinable upper bound: size (compile-time constant)
+            var i: usize = 0;
+            while (i < size) : (i += 1) {
+                // Loop invariant: i <= size
+                assert(i < size);
+
+                if (self.characters[i] == first_char) {
+                    // Character matches
+                    const matched = input[0..1];
+                    const groups = &[_][]const u8{matched};
+                    const result = Match.init(1, groups);
+
+                    // Postconditions
+                    defer assert(result.bytes_consumed == 1);
+                    defer assert(result.groups.len == 1);
+                    defer assert(result.groups[0].len == 1);
+                    defer assert(result.groups[0][0] == first_char);
+
+                    return result;
+                }
+            }
+
+            // No match found
+            const empty_groups: []const []const u8 = &[_][]const u8{};
+            const result = Match.init(0, empty_groups);
+
+            // Postconditions
+            defer assert(result.bytes_consumed == 0);
+            defer assert(result.groups.len == 0);
+
+            return result;
+        }
+    };
+}
+
+test "CharacterClass: match empty input" {
+    const class = CharacterClass(3){ .characters = .{ 'a', 'b', 'c' } };
+    const input = "";
+    const result = class.match(input);
+
+    try std.testing.expectEqual(@as(usize, 0), result.bytes_consumed);
+    try std.testing.expectEqual(@as(usize, 0), result.groups.len);
+}
+
+test "CharacterClass: match first character in set" {
+    const class = CharacterClass(3){ .characters = .{ 'a', 'b', 'c' } };
+    const input = "apple";
+    const result = class.match(input);
+
+    try std.testing.expectEqual(@as(usize, 1), result.bytes_consumed);
+    try std.testing.expectEqual(@as(usize, 1), result.groups.len);
+    try std.testing.expectEqualStrings("a", result.groups[0]);
+}
+
+test "CharacterClass: match middle character in set" {
+    const class = CharacterClass(3){ .characters = .{ 'a', 'b', 'c' } };
+    const input = "banana";
+    const result = class.match(input);
+
+    try std.testing.expectEqual(@as(usize, 1), result.bytes_consumed);
+    try std.testing.expectEqual(@as(usize, 1), result.groups.len);
+    try std.testing.expectEqualStrings("b", result.groups[0]);
+}
+
+test "CharacterClass: match last character in set" {
+    const class = CharacterClass(3){ .characters = .{ 'a', 'b', 'c' } };
+    const input = "cat";
+    const result = class.match(input);
+
+    try std.testing.expectEqual(@as(usize, 1), result.bytes_consumed);
+    try std.testing.expectEqual(@as(usize, 1), result.groups.len);
+    try std.testing.expectEqualStrings("c", result.groups[0]);
+}
+
+test "CharacterClass: no match for character not in set" {
+    const class = CharacterClass(3){ .characters = .{ 'a', 'b', 'c' } };
+    const input = "dog";
+    const result = class.match(input);
+
+    try std.testing.expectEqual(@as(usize, 0), result.bytes_consumed);
+    try std.testing.expectEqual(@as(usize, 0), result.groups.len);
+}
+
+test "CharacterClass: match digits" {
+    const class = CharacterClass(10){ .characters = .{ '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' } };
+
+    const input1 = "123";
+    const result1 = class.match(input1);
+    try std.testing.expectEqual(@as(usize, 1), result1.bytes_consumed);
+    try std.testing.expectEqualStrings("1", result1.groups[0]);
+
+    const input2 = "987";
+    const result2 = class.match(input2);
+    try std.testing.expectEqual(@as(usize, 1), result2.bytes_consumed);
+    try std.testing.expectEqualStrings("9", result2.groups[0]);
+}
+
+test "CharacterClass: single character set" {
+    const class = CharacterClass(1){ .characters = .{'x'} };
+    const input1 = "xyz";
+    const result1 = class.match(input1);
+    try std.testing.expectEqual(@as(usize, 1), result1.bytes_consumed);
+    try std.testing.expectEqualStrings("x", result1.groups[0]);
+
+    const input2 = "abc";
+    const result2 = class.match(input2);
+    try std.testing.expectEqual(@as(usize, 0), result2.bytes_consumed);
+}
