@@ -8,6 +8,7 @@ const Match = @import("match.zig").Match;
 // Note: Pattern is imported from parent, creating a circular dependency
 // This is intentional and necessary: Pattern contains Concatenation,
 // and Concatenation contains pointers to Pattern
+const Pattern = @import("../pattern.zig").Pattern;
 
 /// Helper function to create Concatenation with inferred size.
 /// The max_size is determined by the patterns slice length.
@@ -21,11 +22,6 @@ pub fn concatenation(comptime patterns: anytype) Concatenation(patterns.len) {
 /// The max_size parameter determines the maximum number of patterns that can be stored.
 /// Uses pointers to Pattern to handle the circular dependency between Pattern and Concatenation.
 pub fn Concatenation(comptime max_size: usize) type {
-    // Import Pattern from parent - this creates a circular dependency which is
-    // necessary and handled correctly by Zig: Pattern contains Concatenation,
-    // and Concatenation contains pointers to Pattern
-    const Pattern = @import("../pattern.zig").Pattern;
-
     return struct {
         patterns: [max_size]*const Pattern(max_size),
         count: usize,
@@ -133,7 +129,7 @@ pub fn Concatenation(comptime max_size: usize) type {
 }
 
 test "Concatenation: match empty input" {
-    const P = @import("../pattern.zig").Pattern(10);
+    const P = Pattern(10);
     const Character = @import("character.zig").Character;
     const p1 = P{ .character = Character{ .character = 'a' } };
     const p2 = P{ .character = Character{ .character = 'b' } };
@@ -147,7 +143,7 @@ test "Concatenation: match empty input" {
 }
 
 test "Concatenation: match two characters" {
-    const P = @import("../pattern.zig").Pattern(10);
+    const P = Pattern(10);
     const Character = @import("character.zig").Character;
     const p1 = P{ .character = Character{ .character = 'a' } };
     const p2 = P{ .character = Character{ .character = 'b' } };
@@ -162,7 +158,7 @@ test "Concatenation: match two characters" {
 }
 
 test "Concatenation: partial match fails" {
-    const P = @import("../pattern.zig").Pattern(10);
+    const P = Pattern(10);
     const Character = @import("character.zig").Character;
     const p1 = P{ .character = Character{ .character = 'a' } };
     const p2 = P{ .character = Character{ .character = 'b' } };
@@ -177,7 +173,7 @@ test "Concatenation: partial match fails" {
 }
 
 test "Concatenation: mixed pattern types" {
-    const P = @import("../pattern.zig").Pattern(10);
+    const P = Pattern(10);
     const Character = @import("character.zig").Character;
     const Wildcard = @import("wildcard.zig").Wildcard;
     const CharacterClass = @import("character_class.zig").CharacterClass;
@@ -196,7 +192,7 @@ test "Concatenation: mixed pattern types" {
 }
 
 test "Concatenation: first pattern fails" {
-    const P = @import("../pattern.zig").Pattern(10);
+    const P = Pattern(10);
     const Character = @import("character.zig").Character;
     const p1 = P{ .character = Character{ .character = 'x' } };
     const p2 = P{ .character = Character{ .character = 'b' } };
@@ -210,7 +206,7 @@ test "Concatenation: first pattern fails" {
 }
 
 test "Concatenation: insufficient input" {
-    const P = @import("../pattern.zig").Pattern(10);
+    const P = Pattern(10);
     const Character = @import("character.zig").Character;
     const p1 = P{ .character = Character{ .character = 'a' } };
     const p2 = P{ .character = Character{ .character = 'b' } };
@@ -229,7 +225,7 @@ test "fuzz: Concatenation never panics" {
     const Context = struct {
         fn testOne(context: @This(), input: []const u8) anyerror!void {
             _ = context;
-            const P = @import("../pattern.zig").Pattern(10);
+            const P = Pattern(10);
             const Character = @import("character.zig").Character;
             const p1 = P{ .character = Character{ .character = 'a' } };
             const p2 = P{ .character = Character{ .character = 'b' } };
@@ -252,7 +248,7 @@ test "fuzz: Concatenation never panics" {
 }
 
 test concatenation {
-    const P = @import("../pattern.zig").Pattern(10);
+    const P = Pattern(10);
     const Character = @import("character.zig").Character;
     const p1 = P{ .character = Character{ .character = 'h' } };
     const p2 = P{ .character = Character{ .character = 'i' } };
