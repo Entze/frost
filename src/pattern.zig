@@ -311,11 +311,48 @@ test "Character: match special characters" {
 ///
 /// Since patterns are defined at compile time, the character set is stored
 /// as a compile-time array.
+///
+/// Helper function to create CharacterClass with inferred size:
+/// ```
+/// const vowels = characterClass("aeiou");
+/// ```
+pub fn characterClass(comptime characters: []const u8) CharacterClass(characters.len) {
+    var result: CharacterClass(characters.len) = undefined;
+    result.count = characters.len;
+    for (characters, 0..) |c, i| {
+        result.characters[i] = c;
+    }
+    return result;
+}
+
 pub fn CharacterClass(comptime size: usize) type {
     return struct {
         characters: [size]u8,
+        count: usize,
 
         const Self = @This();
+        
+        /// Creates a CharacterClass from a compile-time character slice.
+        /// The storage size must be >= slice length.
+        ///
+        /// Note: It's easier to use the module-level `characterClass()` function
+        /// which infers the size automatically.
+        ///
+        /// Example:
+        /// ```
+        /// const cc = CharacterClass(10).init("aei"); // Uses 3 of 10 slots
+        /// const digits = CharacterClass(10).init("0123456789"); // Uses all 10 slots
+        /// ```
+        pub fn init(comptime characters: []const u8) Self {
+            assert(characters.len <= size);
+            assert(characters.len > 0);
+            var result: Self = undefined;
+            result.count = characters.len;
+            for (characters, 0..) |c, i| {
+                result.characters[i] = c;
+            }
+            return result;
+        }
 
         /// Matches any character from the character set.
         ///
@@ -335,7 +372,8 @@ pub fn CharacterClass(comptime size: usize) type {
         /// - input must remain valid for lifetime of returned Match
         pub fn match(self: Self, input: []const u8) Match {
             // Preconditions
-            assert(size > 0);
+            assert(self.count > 0);
+            assert(self.count <= size);
 
             if (input.len == 0) {
                 // No input to match
@@ -351,11 +389,11 @@ pub fn CharacterClass(comptime size: usize) type {
             const first_char = input[0];
 
             // Check if first character is in the set
-            // Loop has determinable upper bound: size (compile-time constant)
+            // Loop has determinable upper bound: self.count (runtime validated <= size)
             var i: usize = 0;
-            while (i < size) : (i += 1) {
-                // Loop invariant: i < size
-                assert(i < size);
+            while (i < self.count) : (i += 1) {
+                // Loop invariant: i < self.count
+                assert(i < self.count);
 
                 if (self.characters[i] == first_char) {
                     // Character matches
@@ -386,7 +424,7 @@ pub fn CharacterClass(comptime size: usize) type {
 }
 
 test "CharacterClass: match empty input" {
-    const class = CharacterClass(3){ .characters = .{ 'a', 'b', 'c' } };
+    const class = CharacterClass(3).init("abc");
     const input = "";
     const result = class.match(input);
 
@@ -395,7 +433,7 @@ test "CharacterClass: match empty input" {
 }
 
 test "CharacterClass: match first character in set" {
-    const class = CharacterClass(3){ .characters = .{ 'a', 'b', 'c' } };
+    const class = CharacterClass(3).init("abc");
     const input = "apple";
     const result = class.match(input);
 
@@ -405,7 +443,7 @@ test "CharacterClass: match first character in set" {
 }
 
 test "CharacterClass: match middle character in set" {
-    const class = CharacterClass(3){ .characters = .{ 'a', 'b', 'c' } };
+    const class = CharacterClass(3).init("abc");
     const input = "banana";
     const result = class.match(input);
 
@@ -415,7 +453,7 @@ test "CharacterClass: match middle character in set" {
 }
 
 test "CharacterClass: match last character in set" {
-    const class = CharacterClass(3){ .characters = .{ 'a', 'b', 'c' } };
+    const class = CharacterClass(3).init("abc");
     const input = "cat";
     const result = class.match(input);
 
@@ -425,7 +463,7 @@ test "CharacterClass: match last character in set" {
 }
 
 test "CharacterClass: no match for character not in set" {
-    const class = CharacterClass(3){ .characters = .{ 'a', 'b', 'c' } };
+    const class = CharacterClass(3).init("abc");
     const input = "dog";
     const result = class.match(input);
 
@@ -434,7 +472,7 @@ test "CharacterClass: no match for character not in set" {
 }
 
 test "CharacterClass: match digits" {
-    const class = CharacterClass(10){ .characters = .{ '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' } };
+    const class = CharacterClass(10).init("0123456789");
 
     const input1 = "123";
     const result1 = class.match(input1);
@@ -448,7 +486,7 @@ test "CharacterClass: match digits" {
 }
 
 test "CharacterClass: single character set" {
-    const class = CharacterClass(1){ .characters = .{'x'} };
+    const class = CharacterClass(1).init("x");
     const input1 = "xyz";
     const result1 = class.match(input1);
     try std.testing.expectEqual(@as(usize, 1), result1.bytes_consumed);
@@ -459,72 +497,141 @@ test "CharacterClass: single character set" {
     try std.testing.expectEqual(@as(usize, 0), result2.bytes_consumed);
 }
 
+test "CharacterClass: init helper with size inference" {
+    const vowels = CharacterClass(5).init("aeiou");
+    const input1 = "apple";
+    const result1 = vowels.match(input1);
+    try std.testing.expectEqual(@as(usize, 1), result1.bytes_consumed);
+    try std.testing.expectEqualStrings("a", result1.groups[0]);
+    
+    const input2 = "banana";
+    const result2 = vowels.match(input2);
+    try std.testing.expectEqual(@as(usize, 0), result2.bytes_consumed);
+}
+
+test "CharacterClass: characterClass helper with automatic size inference" {
+    const vowels = characterClass("aeiou");
+    const input1 = "apple";
+    const result1 = vowels.match(input1);
+    try std.testing.expectEqual(@as(usize, 1), result1.bytes_consumed);
+    try std.testing.expectEqualStrings("a", result1.groups[0]);
+    
+    const digits = characterClass("0123456789");
+    const input2 = "42";
+    const result2 = digits.match(input2);
+    try std.testing.expectEqual(@as(usize, 1), result2.bytes_consumed);
+    try std.testing.expectEqualStrings("4", result2.groups[0]);
+}
+
 /// Pattern tagged union containing all pattern variants.
 ///
 /// This is the main abstraction for pattern matching. It delegates matching
 /// behavior to its variants.
 ///
-/// Note: Character class sizes (1, 2, 3, 10) are chosen to cover common use cases:
-/// - 1: Single character alternative
-/// - 2-3: Small sets like binary choices or vowel subsets
-/// - 10: Digit sets (0-9)
-/// Additional sizes can be added as needed for specific use cases.
-pub const Pattern = union(enum) {
-    wildcard: Wildcard,
-    character: Character,
-    character_class_1: CharacterClass(1),
-    character_class_2: CharacterClass(2),
-    character_class_3: CharacterClass(3),
-    character_class_10: CharacterClass(10),
-    concatenation_2_char: Concatenation(struct { Character, Character }),
-    concatenation_3_char: Concatenation(struct { Character, Character, Character }),
-    concatenation_mixed_3: Concatenation(struct { Character, Wildcard, CharacterClass(3) }),
+/// The size parameter determines:
+/// - Maximum size of CharacterClass character sets
+/// - Maximum number of patterns in Concatenation sequences
+///
+/// Example:
+/// ```
+/// const P = Pattern(10); // Supports CharacterClass up to 10 chars, Concatenation up to 10 patterns
+/// const pattern = P{ .character_class = characterClass("0123456789") };
+/// ```
+pub fn Pattern(comptime max_size: usize) type {
+    return union(enum) {
+        wildcard: Wildcard,
+        character: Character,
+        character_class: CharacterClass(max_size),
+        concatenation: Concatenation(max_size),
 
-    const Self = @This();
+        const Self = @This();
 
-    /// Matches the pattern against the input.
-    ///
-    /// Preconditions:
-    /// - input must be valid UTF-8 slice
-    ///
-    /// Postconditions:
-    /// - Returns Match result from the active variant
-    ///
-    /// Ownership:
-    /// - input slice is borrowed, not owned
-    /// - returned Match.groups references input memory
-    ///
-    /// Lifetime:
-    /// - input must remain valid for lifetime of returned Match
-    pub fn match(self: Self, input: []const u8) Match {
-        return switch (self) {
-            .wildcard => |w| w.match(input),
-            .character => |c| c.match(input),
-            .character_class_1 => |cc| cc.match(input),
-            .character_class_2 => |cc| cc.match(input),
-            .character_class_3 => |cc| cc.match(input),
-            .character_class_10 => |cc| cc.match(input),
-            .concatenation_2_char => |cat| cat.match(input),
-            .concatenation_3_char => |cat| cat.match(input),
-            .concatenation_mixed_3 => |cat| cat.match(input),
-        };
-    }
-};
+        /// Matches the pattern against the input.
+        ///
+        /// Preconditions:
+        /// - input must be valid UTF-8 slice
+        ///
+        /// Postconditions:
+        /// - Returns Match result from the active variant
+        ///
+        /// Ownership:
+        /// - input slice is borrowed, not owned
+        /// - returned Match.groups references input memory
+        ///
+        /// Lifetime:
+        /// - input must remain valid for lifetime of returned Match
+        pub fn match(self: Self, input: []const u8) Match {
+            return switch (self) {
+                .wildcard => |w| w.match(input),
+                .character => |c| c.match(input),
+                .character_class => |cc| cc.match(input),
+                .concatenation => |cat| cat.match(input),
+            };
+        }
+    };
+}
+
+/// Helper function to create Concatenation with inferred size.
+/// The max_size is determined by the patterns slice length.
+///
+/// Example:
+/// ```
+/// const P = Pattern(10);
+/// const concat = concatenation(&[_]P{
+///     P{ .character = Character{ .character = 'h' } },
+///     P{ .character = Character{ .character = 'i' } },
+/// });
+/// ```
+pub fn concatenation(comptime patterns: anytype) Concatenation(patterns.len) {
+    return Concatenation(patterns.len).init(patterns);
+}
 
 /// Concatenation pattern that matches sequential patterns.
 ///
-/// Since patterns are defined at compile time, this is a generic type that
-/// accepts pattern types as compile-time parameters.
-pub fn Concatenation(comptime PatternTypes: type) type {
+/// Since patterns are defined at compile time, uses an array with a compile-time count.
+/// The max_size parameter determines the maximum number of patterns that can be stored.
+/// Uses pointers to avoid circular dependency with Pattern.
+pub fn Concatenation(comptime max_size: usize) type {
     return struct {
-        patterns: PatternTypes,
+        patterns: [max_size]*const Pattern(max_size),
+        count: usize,
 
         const Self = @This();
+        
+        /// Creates a Concatenation from a pattern slice.
+        /// The count is taken from the slice length.
+        ///
+        /// Preconditions:
+        /// - patterns.len <= max_size
+        /// - patterns.len > 0
+        ///
+        /// Example:
+        /// ```
+        /// const P = Pattern(10);
+        /// const p1 = P{ .character = Character{ .character = 'a' } };
+        /// const p2 = P{ .character = Character{ .character = 'b' } };
+        /// const patterns = [_]*const P{ &p1, &p2 };
+        /// const concat = Concatenation(10).init(&patterns);
+        /// ```
+        pub fn init(patterns: []const *const Pattern(max_size)) Self {
+            assert(patterns.len <= max_size);
+            assert(patterns.len > 0);
+            var result: Self = undefined;
+            result.count = patterns.len;
+            // Initialize used pattern slots
+            for (patterns, 0..) |pattern, i| {
+                result.patterns[i] = pattern;
+            }
+            // Remaining slots don't need initialization since we use count
+            return result;
+        }
 
         /// Matches patterns in sequence.
         ///
         /// Preconditions:
         /// - input must be valid UTF-8 slice
+        /// - count <= max_size
+        /// - count > 0
         ///
         /// Postconditions:
         /// - If any pattern fails to match, returns Match with 0 bytes consumed
@@ -537,13 +644,20 @@ pub fn Concatenation(comptime PatternTypes: type) type {
         /// Lifetime:
         /// - input must remain valid for lifetime of returned Match
         pub fn match(self: Self, input: []const u8) Match {
+            // Preconditions
+            assert(self.count <= max_size);
+            assert(self.count > 0);
+            
             var total_consumed: usize = 0;
             var current_input = input;
 
-            // Use comptime to iterate over tuple fields
-            inline for (@typeInfo(PatternTypes).@"struct".fields) |field| {
-                const pattern = @field(self.patterns, field.name);
-                const pattern_match = pattern.match(current_input);
+            // Loop has determinable upper bound: self.count (compile-time validated <= max_size)
+            var i: usize = 0;
+            while (i < self.count) : (i += 1) {
+                // Loop invariant: i < self.count
+                assert(i < self.count);
+                
+                const pattern_match = self.patterns[i].match(current_input);
 
                 if (pattern_match.bytes_consumed == 0) {
                     // Pattern failed to match
@@ -576,7 +690,8 @@ pub fn Concatenation(comptime PatternTypes: type) type {
 }
 
 test "Pattern: wildcard variant" {
-    const pattern = Pattern{ .wildcard = Wildcard{} };
+    const P = Pattern(10);
+    const pattern = P{ .wildcard = Wildcard{} };
     const input = "hello";
     const result = pattern.match(input);
 
@@ -585,7 +700,8 @@ test "Pattern: wildcard variant" {
 }
 
 test "Pattern: character variant matching" {
-    const pattern = Pattern{ .character = Character{ .character = 'h' } };
+    const P = Pattern(10);
+    const pattern = P{ .character = Character{ .character = 'h' } };
     const input = "hello";
     const result = pattern.match(input);
 
@@ -594,7 +710,8 @@ test "Pattern: character variant matching" {
 }
 
 test "Pattern: character variant not matching" {
-    const pattern = Pattern{ .character = Character{ .character = 'x' } };
+    const P = Pattern(10);
+    const pattern = P{ .character = Character{ .character = 'x' } };
     const input = "hello";
     const result = pattern.match(input);
 
@@ -602,7 +719,9 @@ test "Pattern: character variant not matching" {
 }
 
 test "Pattern: character class variant" {
-    const pattern = Pattern{ .character_class_3 = CharacterClass(3){ .characters = .{ 'a', 'e', 'i' } } };
+    const P = Pattern(10);
+    const cc = CharacterClass(10).init("aei");
+    const pattern = P{ .character_class = cc };
 
     const input1 = "apple";
     const result1 = pattern.match(input1);
@@ -615,12 +734,11 @@ test "Pattern: character class variant" {
 }
 
 test "Concatenation: match empty input" {
-    const concat = Concatenation(struct { Character, Character }){
-        .patterns = .{
-            Character{ .character = 'a' },
-            Character{ .character = 'b' },
-        },
-    };
+    const P = Pattern(10);
+    const p1 = P{ .character = Character{ .character = 'a' } };
+    const p2 = P{ .character = Character{ .character = 'b' } };
+    const patterns = [_]*const P{ &p1, &p2 };
+    const concat = Concatenation(10).init(&patterns);
     const input = "";
     const result = concat.match(input);
 
@@ -629,12 +747,11 @@ test "Concatenation: match empty input" {
 }
 
 test "Concatenation: match two characters" {
-    const concat = Concatenation(struct { Character, Character }){
-        .patterns = .{
-            Character{ .character = 'a' },
-            Character{ .character = 'b' },
-        },
-    };
+    const P = Pattern(10);
+    const p1 = P{ .character = Character{ .character = 'a' } };
+    const p2 = P{ .character = Character{ .character = 'b' } };
+    const patterns = [_]*const P{ &p1, &p2 };
+    const concat = Concatenation(10).init(&patterns);
     const input = "abc";
     const result = concat.match(input);
 
@@ -644,13 +761,12 @@ test "Concatenation: match two characters" {
 }
 
 test "Concatenation: partial match fails" {
-    const concat = Concatenation(struct { Character, Character, Character }){
-        .patterns = .{
-            Character{ .character = 'a' },
-            Character{ .character = 'b' },
-            Character{ .character = 'c' },
-        },
-    };
+    const P = Pattern(10);
+    const p1 = P{ .character = Character{ .character = 'a' } };
+    const p2 = P{ .character = Character{ .character = 'b' } };
+    const p3 = P{ .character = Character{ .character = 'c' } };
+    const patterns = [_]*const P{ &p1, &p2, &p3 };
+    const concat = Concatenation(10).init(&patterns);
     const input = "abx";
     const result = concat.match(input);
 
@@ -659,13 +775,13 @@ test "Concatenation: partial match fails" {
 }
 
 test "Concatenation: mixed pattern types" {
-    const concat = Concatenation(struct { Character, Wildcard, CharacterClass(3) }){
-        .patterns = .{
-            Character{ .character = 'h' },
-            Wildcard{},
-            CharacterClass(3){ .characters = .{ 'l', 'm', 'n' } },
-        },
-    };
+    const P = Pattern(10);
+    const p1 = P{ .character = Character{ .character = 'h' } };
+    const p2 = P{ .wildcard = Wildcard{} };
+    const cc = CharacterClass(10).init("lmn");
+    const p3 = P{ .character_class = cc };
+    const patterns = [_]*const P{ &p1, &p2, &p3 };
+    const concat = Concatenation(10).init(&patterns);
     const input = "hello";
     const result = concat.match(input);
 
@@ -675,12 +791,11 @@ test "Concatenation: mixed pattern types" {
 }
 
 test "Concatenation: first pattern fails" {
-    const concat = Concatenation(struct { Character, Character }){
-        .patterns = .{
-            Character{ .character = 'x' },
-            Character{ .character = 'b' },
-        },
-    };
+    const P = Pattern(10);
+    const p1 = P{ .character = Character{ .character = 'x' } };
+    const p2 = P{ .character = Character{ .character = 'b' } };
+    const patterns = [_]*const P{ &p1, &p2 };
+    const concat = Concatenation(10).init(&patterns);
     const input = "abc";
     const result = concat.match(input);
 
@@ -689,14 +804,13 @@ test "Concatenation: first pattern fails" {
 }
 
 test "Concatenation: insufficient input" {
-    const concat = Concatenation(struct { Character, Character, Character, Character }){
-        .patterns = .{
-            Character{ .character = 'a' },
-            Character{ .character = 'b' },
-            Character{ .character = 'c' },
-            Character{ .character = 'd' },
-        },
-    };
+    const P = Pattern(10);
+    const p1 = P{ .character = Character{ .character = 'a' } };
+    const p2 = P{ .character = Character{ .character = 'b' } };
+    const p3 = P{ .character = Character{ .character = 'c' } };
+    const p4 = P{ .character = Character{ .character = 'd' } };
+    const patterns = [_]*const P{ &p1, &p2, &p3, &p4 };
+    const concat = Concatenation(10).init(&patterns);
     const input = "abc";
     const result = concat.match(input);
 
@@ -705,14 +819,12 @@ test "Concatenation: insufficient input" {
 }
 
 test "Pattern: concatenation variant" {
-    const pattern = Pattern{
-        .concatenation_2_char = Concatenation(struct { Character, Character }){
-            .patterns = .{
-                Character{ .character = 'h' },
-                Character{ .character = 'i' },
-            },
-        },
-    };
+    const P = Pattern(10);
+    const p1 = P{ .character = Character{ .character = 'h' } };
+    const p2 = P{ .character = Character{ .character = 'i' } };
+    const patterns = [_]*const P{ &p1, &p2 };
+    const concat = Concatenation(10).init(&patterns);
+    const pattern = P{ .concatenation = concat };
     const input = "hi there";
     const result = pattern.match(input);
 
@@ -763,7 +875,7 @@ test "fuzz: CharacterClass never panics" {
     const Context = struct {
         fn testOne(context: @This(), input: []const u8) anyerror!void {
             _ = context;
-            const class = CharacterClass(3){ .characters = .{ 'a', 'b', 'c' } };
+            const class = CharacterClass(3).init("abc");
             const result = class.match(input);
             // CharacterClass should never panic and should consume 0 or 1 bytes
             try std.testing.expect(result.bytes_consumed <= 1);
@@ -782,13 +894,12 @@ test "fuzz: Concatenation never panics" {
     const Context = struct {
         fn testOne(context: @This(), input: []const u8) anyerror!void {
             _ = context;
-            const concat = Concatenation(struct { Character, Character, Character }){
-                .patterns = .{
-                    Character{ .character = 'a' },
-                    Character{ .character = 'b' },
-                    Character{ .character = 'c' },
-                },
-            };
+            const P = Pattern(10);
+            const p1 = P{ .character = Character{ .character = 'a' } };
+            const p2 = P{ .character = Character{ .character = 'b' } };
+            const p3 = P{ .character = Character{ .character = 'c' } };
+            const patterns = [_]*const P{ &p1, &p2, &p3 };
+            const concat = Concatenation(10).init(&patterns);
             const result = concat.match(input);
             // Concatenation should never panic and should consume 0 or 3 bytes
             try std.testing.expect(result.bytes_consumed == 0 or result.bytes_consumed == 3);
@@ -808,30 +919,29 @@ test "fuzz: Pattern union never panics" {
     const Context = struct {
         fn testOne(context: @This(), input: []const u8) anyerror!void {
             _ = context;
+            const P = Pattern(10);
             // Test wildcard variant
-            const pattern1 = Pattern{ .wildcard = Wildcard{} };
+            const pattern1 = P{ .wildcard = Wildcard{} };
             const result1 = pattern1.match(input);
             try std.testing.expect(result1.bytes_consumed <= input.len);
 
             // Test character variant
-            const pattern2 = Pattern{ .character = Character{ .character = 'x' } };
+            const pattern2 = P{ .character = Character{ .character = 'x' } };
             const result2 = pattern2.match(input);
             try std.testing.expect(result2.bytes_consumed <= input.len);
 
             // Test character class variant
-            const pattern3 = Pattern{ .character_class_3 = CharacterClass(3){ .characters = .{ 'a', 'b', 'c' } } };
+            const cc = CharacterClass(10).init("abc");
+            const pattern3 = P{ .character_class = cc };
             const result3 = pattern3.match(input);
             try std.testing.expect(result3.bytes_consumed <= input.len);
 
             // Test concatenation variant
-            const pattern4 = Pattern{
-                .concatenation_2_char = Concatenation(struct { Character, Character }){
-                    .patterns = .{
-                        Character{ .character = 'a' },
-                        Character{ .character = 'b' },
-                    },
-                },
-            };
+            const p1 = P{ .character = Character{ .character = 'a' } };
+            const p2 = P{ .character = Character{ .character = 'b' } };
+            const patterns = [_]*const P{ &p1, &p2 };
+            const concat = Concatenation(10).init(&patterns);
+            const pattern4 = P{ .concatenation = concat };
             const result4 = pattern4.match(input);
             try std.testing.expect(result4.bytes_consumed <= input.len);
         }
