@@ -11,89 +11,141 @@
 const std = @import("std");
 const assert = std.debug.assert;
 
-/// Result of a pattern matching operation.
+/// Represents a matched group as a range in the input string.
 ///
-/// Contains the number of bytes consumed from the input and a slice of matched groups.
-/// Group 0 represents the entire matched pattern.
-pub const Match = struct {
-    /// Number of bytes consumed from the input string.
-    /// Zero indicates no match or empty input.
-    bytes_consumed: usize,
-
-    /// Matched groups. All groups > 0 are a substring of group 0.
-    /// Empty slice indicates no match.
-    groups: []const []const u8,
+/// begin and end are byte indices into the original input string.
+/// The matched text is input[begin..end].
+pub const Group = struct {
+    /// Start index (inclusive) of the matched group in the input string.
+    begin: usize,
+    /// End index (exclusive) of the matched group in the input string.
+    end: usize,
 
     const Self = @This();
 
-    /// Empty match constant for cases where no match occurred.
-    /// Similar to ArrayListAligned.empty.
-    pub const empty: Self = .{
-        .bytes_consumed = 0,
-        .groups = &[_][]const u8{},
-    };
-
-    /// Creates a new Match result.
-    ///
-    /// Preconditions:
-    /// - bytes_consumed >= 0 (enforced by type)
-    ///
-    /// Postconditions:
-    /// - Returns Match with specified values
-    ///
-    /// Ownership:
-    /// - Caller retains ownership of groups slice
-    ///
-    /// Lifetime:
-    /// - groups slice must remain valid for lifetime of Match
-    pub fn init(bytes_consumed: usize, groups: []const []const u8) Self {
-        const result = Self{
-            .bytes_consumed = bytes_consumed,
-            .groups = groups,
+    /// Creates a new Group from begin and end indices.
+    pub fn init(begin: usize, end: usize) Self {
+        assert(begin <= end);
+        return Self{
+            .begin = begin,
+            .end = end,
         };
+    }
 
-        // Postconditions
-        defer assert(result.bytes_consumed == bytes_consumed);
-        defer assert(result.groups.ptr == groups.ptr);
-        defer assert(result.groups.len == groups.len);
-
-        return result;
+    /// Returns the length of the matched group.
+    pub fn len(self: Self) usize {
+        return self.end - self.begin;
     }
 };
 
+/// Result of a pattern matching operation.
+///
+/// Contains the number of bytes consumed from the input and an array of matched groups.
+/// Group 0 represents the entire matched pattern.
+/// The maximum number of groups is determined at compile time by the pattern type.
+pub fn Match(comptime max_groups: usize) type {
+    return struct {
+        /// Number of bytes consumed from the input string.
+        /// Zero indicates no match or empty input.
+        bytes_consumed: usize,
+
+        /// Number of groups matched (0 for no match, at least 1 for a match).
+        groups_matched: usize,
+
+        /// Matched groups. All groups > 0 are a subgroup of group 0.
+        /// Only the first groups_matched elements are valid.
+        groups: [max_groups]Group,
+
+        const Self = @This();
+
+        /// Empty match constant for cases where no match occurred.
+        pub const empty: Self = .{
+            .bytes_consumed = 0,
+            .groups_matched = 0,
+            .groups = [_]Group{Group{ .begin = 0, .end = 0 }} ** max_groups,
+        };
+
+        /// Creates a new Match result.
+        ///
+        /// Preconditions:
+        /// - bytes_consumed >= 0 (enforced by type)
+        /// - groups_matched <= max_groups
+        /// - groups_matched == 0 iff bytes_consumed == 0
+        ///
+        /// Postconditions:
+        /// - Returns Match with specified values
+        pub fn init(bytes_consumed: usize, groups_matched: usize, groups: [max_groups]Group) Self {
+            // Preconditions
+            assert(groups_matched <= max_groups);
+            assert((groups_matched == 0) == (bytes_consumed == 0));
+
+            const result = Self{
+                .bytes_consumed = bytes_consumed,
+                .groups_matched = groups_matched,
+                .groups = groups,
+            };
+
+            // Postconditions
+            defer assert(result.bytes_consumed == bytes_consumed);
+            defer assert(result.groups_matched == groups_matched);
+
+            return result;
+        }
+    };
+}
+
 test "Match: init with no groups" {
-    const empty_groups: []const []const u8 = &[_][]const u8{};
-    const match = Match.init(0, empty_groups);
+    const M = Match(1);
+    const match = M.empty;
 
     try std.testing.expectEqual(@as(usize, 0), match.bytes_consumed);
-    try std.testing.expectEqual(@as(usize, 0), match.groups.len);
+    try std.testing.expectEqual(@as(usize, 0), match.groups_matched);
 }
 
 test "Match: init with single group" {
+    const M = Match(1);
     const input = "hello";
-    const groups = &[_][]const u8{input};
-    const match = Match.init(5, groups);
+    const groups = [_]Group{Group.init(0, 5)};
+    const match = M.init(5, 1, groups);
 
     try std.testing.expectEqual(@as(usize, 5), match.bytes_consumed);
-    try std.testing.expectEqual(@as(usize, 1), match.groups.len);
-    try std.testing.expectEqualStrings("hello", match.groups[0]);
+    try std.testing.expectEqual(@as(usize, 1), match.groups_matched);
+    try std.testing.expectEqual(@as(usize, 0), match.groups[0].begin);
+    try std.testing.expectEqual(@as(usize, 5), match.groups[0].end);
+    // Verify we can extract the matched text
+    const matched_text = input[match.groups[0].begin..match.groups[0].end];
+    try std.testing.expectEqualStrings("hello", matched_text);
 }
 
 test "Match: init with multiple groups" {
-    const group0 = "hello";
-    const group1 = "world";
-    const groups = &[_][]const u8{ group0, group1 };
-    const match = Match.init(10, groups);
+    const M = Match(2);
+    const input = "helloworld";
+    const groups = [_]Group{ Group.init(0, 10), Group.init(5, 10) };
+    const match = M.init(10, 2, groups);
 
     try std.testing.expectEqual(@as(usize, 10), match.bytes_consumed);
-    try std.testing.expectEqual(@as(usize, 2), match.groups.len);
-    try std.testing.expectEqualStrings("hello", match.groups[0]);
-    try std.testing.expectEqualStrings("world", match.groups[1]);
+    try std.testing.expectEqual(@as(usize, 2), match.groups_matched);
+    // Verify group 0
+    const group0_text = input[match.groups[0].begin..match.groups[0].end];
+    try std.testing.expectEqualStrings("helloworld", group0_text);
+    // Verify group 1
+    const group1_text = input[match.groups[1].begin..match.groups[1].end];
+    try std.testing.expectEqualStrings("world", group1_text);
+}
+
+test "Group: basic functionality" {
+    const group = Group.init(5, 10);
+    try std.testing.expectEqual(@as(usize, 5), group.begin);
+    try std.testing.expectEqual(@as(usize, 10), group.end);
+    try std.testing.expectEqual(@as(usize, 5), group.len());
 }
 
 /// Wildcard pattern that matches any single character (regex `.`).
 pub const Wildcard = struct {
     const Self = @This();
+
+    /// Number of groups this pattern produces (always 1: the full match).
+    pub const num_groups = 1;
 
     /// Matches any single character from the input.
     ///
@@ -101,44 +153,38 @@ pub const Wildcard = struct {
     /// - input must be valid UTF-8 slice
     ///
     /// Postconditions:
-    /// - If input is empty, returns Match with 0 bytes consumed and empty groups
-    /// - If input is non-empty, returns Match with 1 byte consumed and groups[0] = first character
+    /// - If input is empty, returns Match with 0 bytes consumed and 0 groups
+    /// - If input is non-empty, returns Match with 1 byte consumed and 1 group
     ///
     /// Ownership:
     /// - input slice is borrowed, not owned
-    /// - returned Match.groups references input memory
     ///
     /// Lifetime:
     /// - input must remain valid for lifetime of returned Match
-    pub fn match(self: Self, input: []const u8) Match {
+    pub fn match(self: Self, input: []const u8) Match(num_groups) {
         _ = self;
 
         // Preconditions - input is already validated by type system
 
         if (input.len == 0) {
             // No input to match
-            const empty_groups: []const []const u8 = &[_][]const u8{};
-            const result = Match.init(0, empty_groups);
+            const result = Match(num_groups).empty;
 
             // Postconditions
             defer assert(result.bytes_consumed == 0);
-            defer assert(result.groups.len == 0);
+            defer assert(result.groups_matched == 0);
 
             return result;
         }
 
         // Match first character
-        const matched = input[0..1];
-        const static = struct {
-            var groups_storage: [1][]const u8 = undefined;
-        };
-        static.groups_storage[0] = matched;
-        const result = Match.init(1, &static.groups_storage);
+        const groups = [_]Group{Group.init(0, 1)};
+        const result = Match(num_groups).init(1, 1, groups);
 
         // Postconditions
         defer assert(result.bytes_consumed == 1);
-        defer assert(result.groups.len == 1);
-        defer assert(result.groups[0].len == 1);
+        defer assert(result.groups_matched == 1);
+        defer assert(result.groups[0].len() == 1);
 
         return result;
     }
@@ -150,7 +196,7 @@ test "Wildcard: match empty input" {
     const result = wildcard.match(input);
 
     try std.testing.expectEqual(@as(usize, 0), result.bytes_consumed);
-    try std.testing.expectEqual(@as(usize, 0), result.groups.len);
+    try std.testing.expectEqual(@as(usize, 0), result.groups_matched);
 }
 
 test "Wildcard: match single character" {
@@ -159,8 +205,10 @@ test "Wildcard: match single character" {
     const result = wildcard.match(input);
 
     try std.testing.expectEqual(@as(usize, 1), result.bytes_consumed);
-    try std.testing.expectEqual(@as(usize, 1), result.groups.len);
-    try std.testing.expectEqualStrings("a", result.groups[0]);
+    try std.testing.expectEqual(@as(usize, 1), result.groups_matched);
+    try std.testing.expectEqual(@as(usize, 0), result.groups[0].begin);
+    try std.testing.expectEqual(@as(usize, 1), result.groups[0].end);
+    try std.testing.expectEqualStrings("a", input[result.groups[0].begin..result.groups[0].end]);
 }
 
 test "Wildcard: match first character of multiple" {
@@ -169,8 +217,8 @@ test "Wildcard: match first character of multiple" {
     const result = wildcard.match(input);
 
     try std.testing.expectEqual(@as(usize, 1), result.bytes_consumed);
-    try std.testing.expectEqual(@as(usize, 1), result.groups.len);
-    try std.testing.expectEqualStrings("h", result.groups[0]);
+    try std.testing.expectEqual(@as(usize, 1), result.groups_matched);
+    try std.testing.expectEqualStrings("h", input[result.groups[0].begin..result.groups[0].end]);
 }
 
 test "Wildcard: match special characters" {
@@ -180,19 +228,19 @@ test "Wildcard: match special characters" {
     const input1 = "\n";
     const result1 = wildcard.match(input1);
     try std.testing.expectEqual(@as(usize, 1), result1.bytes_consumed);
-    try std.testing.expectEqualStrings("\n", result1.groups[0]);
+    try std.testing.expectEqualStrings("\n", input1[result1.groups[0].begin..result1.groups[0].end]);
 
     // Test tab
     const input2 = "\t";
     const result2 = wildcard.match(input2);
     try std.testing.expectEqual(@as(usize, 1), result2.bytes_consumed);
-    try std.testing.expectEqualStrings("\t", result2.groups[0]);
+    try std.testing.expectEqualStrings("\t", input2[result2.groups[0].begin..result2.groups[0].end]);
 
     // Test space
     const input3 = " ";
     const result3 = wildcard.match(input3);
     try std.testing.expectEqual(@as(usize, 1), result3.bytes_consumed);
-    try std.testing.expectEqualStrings(" ", result3.groups[0]);
+    try std.testing.expectEqualStrings(" ", input3[result3.groups[0].begin..result3.groups[0].end]);
 }
 
 /// Character pattern that matches a specific single character.
@@ -201,6 +249,9 @@ pub const Character = struct {
 
     const Self = @This();
 
+    /// Number of groups this pattern produces (always 1: the full match).
+    pub const num_groups = 1;
+
     /// Matches the specified character from the input.
     ///
     /// Preconditions:
@@ -208,52 +259,46 @@ pub const Character = struct {
     ///
     /// Postconditions:
     /// - If input is empty or first character doesn't match, returns Match with 0 bytes consumed
-    /// - If first character matches, returns Match with 1 byte consumed and groups[0] = matched character
+    /// - If first character matches, returns Match with 1 byte consumed and 1 group
     ///
     /// Ownership:
     /// - input slice is borrowed, not owned
-    /// - returned Match.groups references input memory
     ///
     /// Lifetime:
     /// - input must remain valid for lifetime of returned Match
-    pub fn match(self: Self, input: []const u8) Match {
+    pub fn match(self: Self, input: []const u8) Match(num_groups) {
         // Preconditions - validated by type system
 
         if (input.len == 0) {
             // No input to match
-            const result = Match.empty;
+            const result = Match(num_groups).empty;
 
             // Postconditions
             defer assert(result.bytes_consumed == 0);
-            defer assert(result.groups.len == 0);
+            defer assert(result.groups_matched == 0);
 
             return result;
         }
 
         if (input[0] != self.character) {
             // Character doesn't match
-            const result = Match.empty;
+            const result = Match(num_groups).empty;
 
             // Postconditions
             defer assert(result.bytes_consumed == 0);
-            defer assert(result.groups.len == 0);
+            defer assert(result.groups_matched == 0);
 
             return result;
         }
 
         // Character matches
-        const matched = input[0..1];
-        const static = struct {
-            var groups_storage: [1][]const u8 = undefined;
-        };
-        static.groups_storage[0] = matched;
-        const result = Match.init(1, &static.groups_storage);
+        const groups = [_]Group{Group.init(0, 1)};
+        const result = Match(num_groups).init(1, 1, groups);
 
         // Postconditions
         defer assert(result.bytes_consumed == 1);
-        defer assert(result.groups.len == 1);
-        defer assert(result.groups[0].len == 1);
-        defer assert(result.groups[0][0] == self.character);
+        defer assert(result.groups_matched == 1);
+        defer assert(result.groups[0].len() == 1);
 
         return result;
     }
@@ -265,7 +310,7 @@ test "Character: match empty input" {
     const result = char.match(input);
 
     try std.testing.expectEqual(@as(usize, 0), result.bytes_consumed);
-    try std.testing.expectEqual(@as(usize, 0), result.groups.len);
+    try std.testing.expectEqual(@as(usize, 0), result.groups_matched);
 }
 
 test "Character: match matching character" {
@@ -274,8 +319,8 @@ test "Character: match matching character" {
     const result = char.match(input);
 
     try std.testing.expectEqual(@as(usize, 1), result.bytes_consumed);
-    try std.testing.expectEqual(@as(usize, 1), result.groups.len);
-    try std.testing.expectEqualStrings("a", result.groups[0]);
+    try std.testing.expectEqual(@as(usize, 1), result.groups_matched);
+    try std.testing.expectEqualStrings("a", input[result.groups[0].begin..result.groups[0].end]);
 }
 
 test "Character: no match for different character" {
@@ -284,7 +329,7 @@ test "Character: no match for different character" {
     const result = char.match(input);
 
     try std.testing.expectEqual(@as(usize, 0), result.bytes_consumed);
-    try std.testing.expectEqual(@as(usize, 0), result.groups.len);
+    try std.testing.expectEqual(@as(usize, 0), result.groups_matched);
 }
 
 test "Character: match first character only" {
@@ -293,8 +338,8 @@ test "Character: match first character only" {
     const result = char.match(input);
 
     try std.testing.expectEqual(@as(usize, 1), result.bytes_consumed);
-    try std.testing.expectEqual(@as(usize, 1), result.groups.len);
-    try std.testing.expectEqualStrings("h", result.groups[0]);
+    try std.testing.expectEqual(@as(usize, 1), result.groups_matched);
+    try std.testing.expectEqualStrings("h", input[result.groups[0].begin..result.groups[0].end]);
 }
 
 test "Character: match special characters" {
@@ -303,14 +348,14 @@ test "Character: match special characters" {
     const input1 = "\ntest";
     const result1 = char1.match(input1);
     try std.testing.expectEqual(@as(usize, 1), result1.bytes_consumed);
-    try std.testing.expectEqualStrings("\n", result1.groups[0]);
+    try std.testing.expectEqualStrings("\n", input1[result1.groups[0].begin..result1.groups[0].end]);
 
     // Test digit
     const char2 = Character{ .character = '5' };
     const input2 = "5678";
     const result2 = char2.match(input2);
     try std.testing.expectEqual(@as(usize, 1), result2.bytes_consumed);
-    try std.testing.expectEqualStrings("5", result2.groups[0]);
+    try std.testing.expectEqualStrings("5", input2[result2.groups[0].begin..result2.groups[0].end]);
 }
 
 /// CharacterClass pattern that matches any character in a set (regex `[ ]`).
@@ -337,6 +382,9 @@ pub fn CharacterClass(comptime size: usize) type {
         count: usize,
 
         const Self = @This();
+
+        /// Number of groups this pattern produces (always 1: the full match).
+        pub const num_groups = 1;
 
         /// Creates a CharacterClass from a compile-time character slice.
         /// The storage size must be >= slice length.
@@ -368,26 +416,25 @@ pub fn CharacterClass(comptime size: usize) type {
         ///
         /// Postconditions:
         /// - If input is empty or first character not in set, returns Match with 0 bytes consumed
-        /// - If first character in set, returns Match with 1 byte consumed and groups[0] = matched character
+        /// - If first character in set, returns Match with 1 byte consumed and 1 group
         ///
         /// Ownership:
         /// - input slice is borrowed, not owned
-        /// - returned Match.groups references input memory
         ///
         /// Lifetime:
         /// - input must remain valid for lifetime of returned Match
-        pub fn match(self: Self, input: []const u8) Match {
+        pub fn match(self: Self, input: []const u8) Match(num_groups) {
             // Preconditions
             assert(self.count > 0);
             assert(self.count <= size);
 
             if (input.len == 0) {
                 // No input to match
-                const result = Match.empty;
+                const result = Match(num_groups).empty;
 
                 // Postconditions
                 defer assert(result.bytes_consumed == 0);
-                defer assert(result.groups.len == 0);
+                defer assert(result.groups_matched == 0);
 
                 return result;
             }
@@ -403,29 +450,24 @@ pub fn CharacterClass(comptime size: usize) type {
 
                 if (self.characters[i] == first_char) {
                     // Character matches
-                    const matched = input[0..1];
-                    const static = struct {
-                        var groups_storage: [1][]const u8 = undefined;
-                    };
-                    static.groups_storage[0] = matched;
-                    const result = Match.init(1, &static.groups_storage);
+                    const groups = [_]Group{Group.init(0, 1)};
+                    const result = Match(num_groups).init(1, 1, groups);
 
                     // Postconditions
                     defer assert(result.bytes_consumed == 1);
-                    defer assert(result.groups.len == 1);
-                    defer assert(result.groups[0].len == 1);
-                    defer assert(result.groups[0][0] == first_char);
+                    defer assert(result.groups_matched == 1);
+                    defer assert(result.groups[0].len() == 1);
 
                     return result;
                 }
             }
 
             // No match found
-            const result = Match.empty;
+            const result = Match(num_groups).empty;
 
             // Postconditions
             defer assert(result.bytes_consumed == 0);
-            defer assert(result.groups.len == 0);
+            defer assert(result.groups_matched == 0);
 
             return result;
         }
@@ -438,7 +480,7 @@ test "CharacterClass: match empty input" {
     const result = class.match(input);
 
     try std.testing.expectEqual(@as(usize, 0), result.bytes_consumed);
-    try std.testing.expectEqual(@as(usize, 0), result.groups.len);
+    try std.testing.expectEqual(@as(usize, 0), result.groups_matched);
 }
 
 test "CharacterClass: match first character in set" {
@@ -447,8 +489,8 @@ test "CharacterClass: match first character in set" {
     const result = class.match(input);
 
     try std.testing.expectEqual(@as(usize, 1), result.bytes_consumed);
-    try std.testing.expectEqual(@as(usize, 1), result.groups.len);
-    try std.testing.expectEqualStrings("a", result.groups[0]);
+    try std.testing.expectEqual(@as(usize, 1), result.groups_matched);
+    try std.testing.expectEqualStrings("a", input[result.groups[0].begin..result.groups[0].end]);
 }
 
 test "CharacterClass: match middle character in set" {
@@ -457,8 +499,8 @@ test "CharacterClass: match middle character in set" {
     const result = class.match(input);
 
     try std.testing.expectEqual(@as(usize, 1), result.bytes_consumed);
-    try std.testing.expectEqual(@as(usize, 1), result.groups.len);
-    try std.testing.expectEqualStrings("b", result.groups[0]);
+    try std.testing.expectEqual(@as(usize, 1), result.groups_matched);
+    try std.testing.expectEqualStrings("b", input[result.groups[0].begin..result.groups[0].end]);
 }
 
 test "CharacterClass: match last character in set" {
@@ -467,8 +509,8 @@ test "CharacterClass: match last character in set" {
     const result = class.match(input);
 
     try std.testing.expectEqual(@as(usize, 1), result.bytes_consumed);
-    try std.testing.expectEqual(@as(usize, 1), result.groups.len);
-    try std.testing.expectEqualStrings("c", result.groups[0]);
+    try std.testing.expectEqual(@as(usize, 1), result.groups_matched);
+    try std.testing.expectEqualStrings("c", input[result.groups[0].begin..result.groups[0].end]);
 }
 
 test "CharacterClass: no match for character not in set" {
@@ -477,7 +519,7 @@ test "CharacterClass: no match for character not in set" {
     const result = class.match(input);
 
     try std.testing.expectEqual(@as(usize, 0), result.bytes_consumed);
-    try std.testing.expectEqual(@as(usize, 0), result.groups.len);
+    try std.testing.expectEqual(@as(usize, 0), result.groups_matched);
 }
 
 test "CharacterClass: match digits" {
@@ -486,12 +528,12 @@ test "CharacterClass: match digits" {
     const input1 = "123";
     const result1 = class.match(input1);
     try std.testing.expectEqual(@as(usize, 1), result1.bytes_consumed);
-    try std.testing.expectEqualStrings("1", result1.groups[0]);
+    try std.testing.expectEqualStrings("1", input1[result1.groups[0].begin..result1.groups[0].end]);
 
     const input2 = "987";
     const result2 = class.match(input2);
     try std.testing.expectEqual(@as(usize, 1), result2.bytes_consumed);
-    try std.testing.expectEqualStrings("9", result2.groups[0]);
+    try std.testing.expectEqualStrings("9", input2[result2.groups[0].begin..result2.groups[0].end]);
 }
 
 test "CharacterClass: single character set" {
@@ -499,7 +541,7 @@ test "CharacterClass: single character set" {
     const input1 = "xyz";
     const result1 = class.match(input1);
     try std.testing.expectEqual(@as(usize, 1), result1.bytes_consumed);
-    try std.testing.expectEqualStrings("x", result1.groups[0]);
+    try std.testing.expectEqualStrings("x", input1[result1.groups[0].begin..result1.groups[0].end]);
 
     const input2 = "abc";
     const result2 = class.match(input2);
@@ -511,7 +553,7 @@ test "CharacterClass: init helper with size inference" {
     const input1 = "apple";
     const result1 = vowels.match(input1);
     try std.testing.expectEqual(@as(usize, 1), result1.bytes_consumed);
-    try std.testing.expectEqualStrings("a", result1.groups[0]);
+    try std.testing.expectEqualStrings("a", input1[result1.groups[0].begin..result1.groups[0].end]);
 
     const input2 = "banana";
     const result2 = vowels.match(input2);
@@ -523,13 +565,13 @@ test "CharacterClass: characterClass helper with automatic size inference" {
     const input1 = "apple";
     const result1 = vowels.match(input1);
     try std.testing.expectEqual(@as(usize, 1), result1.bytes_consumed);
-    try std.testing.expectEqualStrings("a", result1.groups[0]);
+    try std.testing.expectEqualStrings("a", input1[result1.groups[0].begin..result1.groups[0].end]);
 
     const digits = characterClass("0123456789");
     const input2 = "42";
     const result2 = digits.match(input2);
     try std.testing.expectEqual(@as(usize, 1), result2.bytes_consumed);
-    try std.testing.expectEqualStrings("4", result2.groups[0]);
+    try std.testing.expectEqualStrings("4", input2[result2.groups[0].begin..result2.groups[0].end]);
 }
 
 /// Pattern tagged union containing all pattern variants.
@@ -555,6 +597,9 @@ pub fn Pattern(comptime max_size: usize) type {
 
         const Self = @This();
 
+        /// Number of groups this pattern union produces (always 1 for basic patterns).
+        pub const num_groups = 1;
+
         /// Matches the pattern against the input.
         ///
         /// Preconditions:
@@ -565,11 +610,10 @@ pub fn Pattern(comptime max_size: usize) type {
         ///
         /// Ownership:
         /// - input slice is borrowed, not owned
-        /// - returned Match.groups references input memory
         ///
         /// Lifetime:
         /// - input must remain valid for lifetime of returned Match
-        pub fn match(self: Self, input: []const u8) Match {
+        pub fn match(self: Self, input: []const u8) Match(num_groups) {
             return switch (self) {
                 .wildcard => |w| w.match(input),
                 .character => |c| c.match(input),
@@ -606,6 +650,9 @@ pub fn Concatenation(comptime max_size: usize) type {
         count: usize,
 
         const Self = @This();
+
+        /// Number of groups this pattern produces (always 1: the full match).
+        pub const num_groups = 1;
 
         /// Creates a Concatenation from a pattern slice.
         /// The count is taken from the slice length.
@@ -644,15 +691,14 @@ pub fn Concatenation(comptime max_size: usize) type {
         ///
         /// Postconditions:
         /// - If any pattern fails to match, returns Match with 0 bytes consumed
-        /// - If all patterns match, returns Match with total bytes consumed and groups[0] = entire matched string
+        /// - If all patterns match, returns Match with total bytes consumed and 1 group (the full match)
         ///
         /// Ownership:
         /// - input slice is borrowed, not owned
-        /// - returned Match.groups references input memory
         ///
         /// Lifetime:
         /// - input must remain valid for lifetime of returned Match
-        pub fn match(self: Self, input: []const u8) Match {
+        pub fn match(self: Self, input: []const u8) Match(num_groups) {
             // Preconditions
             assert(self.count <= max_size);
             assert(self.count > 0);
@@ -670,11 +716,11 @@ pub fn Concatenation(comptime max_size: usize) type {
 
                 if (pattern_match.bytes_consumed == 0) {
                     // Pattern failed to match
-                    const result = Match.empty;
+                    const result = Match(num_groups).empty;
 
                     // Postconditions
                     defer assert(result.bytes_consumed == 0);
-                    defer assert(result.groups.len == 0);
+                    defer assert(result.groups_matched == 0);
 
                     return result;
                 }
@@ -684,17 +730,13 @@ pub fn Concatenation(comptime max_size: usize) type {
             }
 
             // All patterns matched successfully
-            const matched = input[0..total_consumed];
-            const static = struct {
-                var groups_storage: [1][]const u8 = undefined;
-            };
-            static.groups_storage[0] = matched;
-            const result = Match.init(total_consumed, &static.groups_storage);
+            const groups = [_]Group{Group.init(0, total_consumed)};
+            const result = Match(num_groups).init(total_consumed, 1, groups);
 
             // Postconditions
             defer assert(result.bytes_consumed == total_consumed);
-            defer assert(result.groups.len == 1);
-            defer assert(result.groups[0].len == total_consumed);
+            defer assert(result.groups_matched == 1);
+            defer assert(result.groups[0].len() == total_consumed);
 
             return result;
         }
@@ -708,7 +750,7 @@ test "Pattern: wildcard variant" {
     const result = pattern.match(input);
 
     try std.testing.expectEqual(@as(usize, 1), result.bytes_consumed);
-    try std.testing.expectEqualStrings("h", result.groups[0]);
+    try std.testing.expectEqualStrings("h", input[result.groups[0].begin..result.groups[0].end]);
 }
 
 test "Pattern: character variant matching" {
@@ -718,7 +760,7 @@ test "Pattern: character variant matching" {
     const result = pattern.match(input);
 
     try std.testing.expectEqual(@as(usize, 1), result.bytes_consumed);
-    try std.testing.expectEqualStrings("h", result.groups[0]);
+    try std.testing.expectEqualStrings("h", input[result.groups[0].begin..result.groups[0].end]);
 }
 
 test "Pattern: character variant not matching" {
@@ -738,7 +780,7 @@ test "Pattern: character class variant" {
     const input1 = "apple";
     const result1 = pattern.match(input1);
     try std.testing.expectEqual(@as(usize, 1), result1.bytes_consumed);
-    try std.testing.expectEqualStrings("a", result1.groups[0]);
+    try std.testing.expectEqualStrings("a", input1[result1.groups[0].begin..result1.groups[0].end]);
 
     const input2 = "banana";
     const result2 = pattern.match(input2);
@@ -755,7 +797,7 @@ test "Concatenation: match empty input" {
     const result = concat.match(input);
 
     try std.testing.expectEqual(@as(usize, 0), result.bytes_consumed);
-    try std.testing.expectEqual(@as(usize, 0), result.groups.len);
+    try std.testing.expectEqual(@as(usize, 0), result.groups_matched);
 }
 
 test "Concatenation: match two characters" {
@@ -768,8 +810,8 @@ test "Concatenation: match two characters" {
     const result = concat.match(input);
 
     try std.testing.expectEqual(@as(usize, 2), result.bytes_consumed);
-    try std.testing.expectEqual(@as(usize, 1), result.groups.len);
-    try std.testing.expectEqualStrings("ab", result.groups[0]);
+    try std.testing.expectEqual(@as(usize, 1), result.groups_matched);
+    try std.testing.expectEqualStrings("ab", input[result.groups[0].begin..result.groups[0].end]);
 }
 
 test "Concatenation: partial match fails" {
@@ -783,7 +825,7 @@ test "Concatenation: partial match fails" {
     const result = concat.match(input);
 
     try std.testing.expectEqual(@as(usize, 0), result.bytes_consumed);
-    try std.testing.expectEqual(@as(usize, 0), result.groups.len);
+    try std.testing.expectEqual(@as(usize, 0), result.groups_matched);
 }
 
 test "Concatenation: mixed pattern types" {
@@ -798,8 +840,8 @@ test "Concatenation: mixed pattern types" {
     const result = concat.match(input);
 
     try std.testing.expectEqual(@as(usize, 3), result.bytes_consumed);
-    try std.testing.expectEqual(@as(usize, 1), result.groups.len);
-    try std.testing.expectEqualStrings("hel", result.groups[0]);
+    try std.testing.expectEqual(@as(usize, 1), result.groups_matched);
+    try std.testing.expectEqualStrings("hel", input[result.groups[0].begin..result.groups[0].end]);
 }
 
 test "Concatenation: first pattern fails" {
@@ -812,7 +854,7 @@ test "Concatenation: first pattern fails" {
     const result = concat.match(input);
 
     try std.testing.expectEqual(@as(usize, 0), result.bytes_consumed);
-    try std.testing.expectEqual(@as(usize, 0), result.groups.len);
+    try std.testing.expectEqual(@as(usize, 0), result.groups_matched);
 }
 
 test "Concatenation: insufficient input" {
@@ -827,7 +869,7 @@ test "Concatenation: insufficient input" {
     const result = concat.match(input);
 
     try std.testing.expectEqual(@as(usize, 0), result.bytes_consumed);
-    try std.testing.expectEqual(@as(usize, 0), result.groups.len);
+    try std.testing.expectEqual(@as(usize, 0), result.groups_matched);
 }
 
 test "Pattern: concatenation variant" {
@@ -841,7 +883,7 @@ test "Pattern: concatenation variant" {
     const result = pattern.match(input);
 
     try std.testing.expectEqual(@as(usize, 2), result.bytes_consumed);
-    try std.testing.expectEqualStrings("hi", result.groups[0]);
+    try std.testing.expectEqualStrings("hi", input[result.groups[0].begin..result.groups[0].end]);
 }
 
 test "fuzz: Wildcard never panics" {
@@ -853,10 +895,10 @@ test "fuzz: Wildcard never panics" {
             // Wildcard should never panic and should consume 0 or 1 bytes
             try std.testing.expect(result.bytes_consumed <= 1);
             if (result.bytes_consumed == 0) {
-                try std.testing.expectEqual(@as(usize, 0), result.groups.len);
+                try std.testing.expectEqual(@as(usize, 0), result.groups_matched);
             } else {
-                try std.testing.expectEqual(@as(usize, 1), result.groups.len);
-                try std.testing.expectEqual(@as(usize, 1), result.groups[0].len);
+                try std.testing.expectEqual(@as(usize, 1), result.groups_matched);
+                try std.testing.expectEqual(@as(usize, 1), result.groups[0].len());
             }
         }
     };
@@ -872,11 +914,11 @@ test "fuzz: Character never panics" {
             // Character should never panic and should consume 0 or 1 bytes
             try std.testing.expect(result.bytes_consumed <= 1);
             if (result.bytes_consumed == 0) {
-                try std.testing.expectEqual(@as(usize, 0), result.groups.len);
+                try std.testing.expectEqual(@as(usize, 0), result.groups_matched);
             } else {
-                try std.testing.expectEqual(@as(usize, 1), result.groups.len);
-                try std.testing.expectEqual(@as(usize, 1), result.groups[0].len);
-                try std.testing.expectEqualStrings("a", result.groups[0]);
+                try std.testing.expectEqual(@as(usize, 1), result.groups_matched);
+                try std.testing.expectEqual(@as(usize, 1), result.groups[0].len());
+                try std.testing.expectEqualStrings("a", input[result.groups[0].begin..result.groups[0].end]);
             }
         }
     };
@@ -892,10 +934,10 @@ test "fuzz: CharacterClass never panics" {
             // CharacterClass should never panic and should consume 0 or 1 bytes
             try std.testing.expect(result.bytes_consumed <= 1);
             if (result.bytes_consumed == 0) {
-                try std.testing.expectEqual(@as(usize, 0), result.groups.len);
+                try std.testing.expectEqual(@as(usize, 0), result.groups_matched);
             } else {
-                try std.testing.expectEqual(@as(usize, 1), result.groups.len);
-                try std.testing.expectEqual(@as(usize, 1), result.groups[0].len);
+                try std.testing.expectEqual(@as(usize, 1), result.groups_matched);
+                try std.testing.expectEqual(@as(usize, 1), result.groups[0].len());
             }
         }
     };
@@ -916,11 +958,11 @@ test "fuzz: Concatenation never panics" {
             // Concatenation should never panic and should consume 0 or 3 bytes
             try std.testing.expect(result.bytes_consumed == 0 or result.bytes_consumed == 3);
             if (result.bytes_consumed == 0) {
-                try std.testing.expectEqual(@as(usize, 0), result.groups.len);
+                try std.testing.expectEqual(@as(usize, 0), result.groups_matched);
             } else {
-                try std.testing.expectEqual(@as(usize, 1), result.groups.len);
-                try std.testing.expectEqual(@as(usize, 3), result.groups[0].len);
-                try std.testing.expectEqualStrings("abc", result.groups[0]);
+                try std.testing.expectEqual(@as(usize, 1), result.groups_matched);
+                try std.testing.expectEqual(@as(usize, 3), result.groups[0].len());
+                try std.testing.expectEqualStrings("abc", input[result.groups[0].begin..result.groups[0].end]);
             }
         }
     };
