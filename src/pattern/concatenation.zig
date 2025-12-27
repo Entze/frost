@@ -5,8 +5,9 @@ const assert = std.debug.assert;
 const Group = @import("group.zig").Group;
 const Match = @import("match.zig").Match;
 
-// Note: Pattern is imported from parent to avoid circular dependency
-// This must be provided when using Concatenation
+// Note: Pattern is imported from parent, creating a circular dependency
+// This is intentional and necessary: Pattern contains Concatenation,
+// and Concatenation contains pointers to Pattern
 
 /// Helper function to create Concatenation with inferred size.
 /// The max_size is determined by the patterns slice length.
@@ -18,10 +19,11 @@ pub fn concatenation(comptime patterns: anytype) Concatenation(patterns.len) {
 ///
 /// Since patterns are defined at compile time, uses an array with a compile-time count.
 /// The max_size parameter determines the maximum number of patterns that can be stored.
-/// Uses pointers to avoid circular dependency with Pattern.
+/// Uses pointers to Pattern to handle the circular dependency between Pattern and Concatenation.
 pub fn Concatenation(comptime max_size: usize) type {
-    // Forward declare Pattern type - will be resolved when Concatenation is instantiated
-    // from pattern.zig where Pattern is defined
+    // Import Pattern from parent - this creates a circular dependency which is
+    // necessary and handled correctly by Zig: Pattern contains Concatenation,
+    // and Concatenation contains pointers to Pattern
     const Pattern = @import("../pattern.zig").Pattern;
 
     return struct {
