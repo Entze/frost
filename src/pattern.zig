@@ -345,7 +345,7 @@ pub fn CharacterClass(comptime size: usize) type {
             // Loop has determinable upper bound: size (compile-time constant)
             var i: usize = 0;
             while (i < size) : (i += 1) {
-                // Loop invariant: i <= size
+                // Loop invariant: i < size
                 assert(i < size);
 
                 if (self.characters[i] == first_char) {
@@ -455,6 +455,12 @@ test "CharacterClass: single character set" {
 ///
 /// This is the main abstraction for pattern matching. It delegates matching
 /// behavior to its variants.
+///
+/// Note: Character class sizes (1, 2, 3, 10) are chosen to cover common use cases:
+/// - 1: Single character alternative
+/// - 2-3: Small sets like binary choices or vowel subsets
+/// - 10: Digit sets (0-9)
+/// Additional sizes can be added as needed for specific use cases.
 pub const Pattern = union(enum) {
     wildcard: Wildcard,
     character: Character,
