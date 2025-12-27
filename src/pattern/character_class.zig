@@ -41,7 +41,7 @@ pub fn CharacterClass(comptime size: usize) type {
         const Self = @This();
 
         /// Number of groups this pattern produces (always 1: the full match).
-        pub const num_groups = 1;
+        pub const groups_count = 1;
 
         /// Creates a CharacterClass from a compile-time character slice.
         /// The storage size must be >= slice length.
@@ -90,14 +90,14 @@ pub fn CharacterClass(comptime size: usize) type {
         ///
         /// Lifetime:
         /// - input must remain valid for lifetime of returned Match
-        pub fn match(self: Self, input: []const u8) Match(num_groups) {
+        pub fn match(self: Self, input: []const u8) Match(groups_count) {
             // Preconditions
             assert(self.count > 0);
             assert(self.count <= size);
 
             if (input.len == 0) {
                 // No input to match
-                const result = Match(num_groups).empty;
+                const result = Match(groups_count).empty;
 
                 // Postconditions
                 defer assert(result.bytes_consumed == 0);
@@ -118,7 +118,7 @@ pub fn CharacterClass(comptime size: usize) type {
                 if (self.characters[i] == first_char) {
                     // Character matches
                     const groups = [_]Group{Group.init(0, 1)};
-                    const result = Match(num_groups).init(1, 1, groups);
+                    const result = Match(groups_count).init(1, 1, groups);
 
                     // Postconditions
                     defer assert(result.bytes_consumed == 1);
@@ -130,7 +130,7 @@ pub fn CharacterClass(comptime size: usize) type {
             }
 
             // No match found
-            const result = Match(num_groups).empty;
+            const result = Match(groups_count).empty;
 
             // Postconditions
             defer assert(result.bytes_consumed == 0);

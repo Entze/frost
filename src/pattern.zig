@@ -38,7 +38,7 @@ pub fn Pattern(comptime max_size: usize) type {
         const Self = @This();
 
         /// Number of groups this pattern union produces (always 1 for basic patterns).
-        pub const num_groups = 1;
+        pub const groups_count = 1;
 
         /// Matches the pattern against the input.
         ///
@@ -53,7 +53,7 @@ pub fn Pattern(comptime max_size: usize) type {
         ///
         /// Lifetime:
         /// - input must remain valid for lifetime of returned Match
-        pub fn match(self: Self, input: []const u8) Match(num_groups) {
+        pub fn match(self: Self, input: []const u8) Match(groups_count) {
             return switch (self) {
                 .wildcard => |w| w.match(input),
                 .character => |c| c.match(input),
@@ -62,6 +62,12 @@ pub fn Pattern(comptime max_size: usize) type {
             };
         }
     };
+}
+
+test "Pattern: groups_count constant" {
+    const P = Pattern(10);
+    // Verify that groups_count constant is accessible and correct
+    try std.testing.expectEqual(@as(usize, 1), P.groups_count);
 }
 
 test Pattern {
