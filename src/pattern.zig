@@ -706,3 +706,122 @@ test "Pattern: concatenation variant" {
     try std.testing.expectEqual(@as(usize, 2), result.bytes_consumed);
     try std.testing.expectEqualStrings("hi", result.groups[0]);
 }
+
+test "fuzz: Wildcard never panics" {
+    const Context = struct {
+        fn testOne(context: @This(), input: []const u8) anyerror!void {
+            _ = context;
+            const wildcard = Wildcard{};
+            const result = wildcard.match(input);
+            // Wildcard should never panic and should consume 0 or 1 bytes
+            try std.testing.expect(result.bytes_consumed <= 1);
+            if (result.bytes_consumed == 0) {
+                try std.testing.expectEqual(@as(usize, 0), result.groups.len);
+            } else {
+                try std.testing.expectEqual(@as(usize, 1), result.groups.len);
+                try std.testing.expectEqual(@as(usize, 1), result.groups[0].len);
+            }
+        }
+    };
+    try std.testing.fuzz(Context{}, Context.testOne, .{});
+}
+
+test "fuzz: Character never panics" {
+    const Context = struct {
+        fn testOne(context: @This(), input: []const u8) anyerror!void {
+            _ = context;
+            const char = Character{ .character = 'a' };
+            const result = char.match(input);
+            // Character should never panic and should consume 0 or 1 bytes
+            try std.testing.expect(result.bytes_consumed <= 1);
+            if (result.bytes_consumed == 0) {
+                try std.testing.expectEqual(@as(usize, 0), result.groups.len);
+            } else {
+                try std.testing.expectEqual(@as(usize, 1), result.groups.len);
+                try std.testing.expectEqual(@as(usize, 1), result.groups[0].len);
+                try std.testing.expectEqualStrings("a", result.groups[0]);
+            }
+        }
+    };
+    try std.testing.fuzz(Context{}, Context.testOne, .{});
+}
+
+test "fuzz: CharacterClass never panics" {
+    const Context = struct {
+        fn testOne(context: @This(), input: []const u8) anyerror!void {
+            _ = context;
+            const class = CharacterClass(3){ .characters = .{ 'a', 'b', 'c' } };
+            const result = class.match(input);
+            // CharacterClass should never panic and should consume 0 or 1 bytes
+            try std.testing.expect(result.bytes_consumed <= 1);
+            if (result.bytes_consumed == 0) {
+                try std.testing.expectEqual(@as(usize, 0), result.groups.len);
+            } else {
+                try std.testing.expectEqual(@as(usize, 1), result.groups.len);
+                try std.testing.expectEqual(@as(usize, 1), result.groups[0].len);
+            }
+        }
+    };
+    try std.testing.fuzz(Context{}, Context.testOne, .{});
+}
+
+test "fuzz: Concatenation never panics" {
+    const Context = struct {
+        fn testOne(context: @This(), input: []const u8) anyerror!void {
+            _ = context;
+            const concat = Concatenation(struct { Character, Character, Character }){
+                .patterns = .{
+                    Character{ .character = 'a' },
+                    Character{ .character = 'b' },
+                    Character{ .character = 'c' },
+                },
+            };
+            const result = concat.match(input);
+            // Concatenation should never panic and should consume 0 or 3 bytes
+            try std.testing.expect(result.bytes_consumed == 0 or result.bytes_consumed == 3);
+            if (result.bytes_consumed == 0) {
+                try std.testing.expectEqual(@as(usize, 0), result.groups.len);
+            } else {
+                try std.testing.expectEqual(@as(usize, 1), result.groups.len);
+                try std.testing.expectEqual(@as(usize, 3), result.groups[0].len);
+                try std.testing.expectEqualStrings("abc", result.groups[0]);
+            }
+        }
+    };
+    try std.testing.fuzz(Context{}, Context.testOne, .{});
+}
+
+test "fuzz: Pattern union never panics" {
+    const Context = struct {
+        fn testOne(context: @This(), input: []const u8) anyerror!void {
+            _ = context;
+            // Test wildcard variant
+            const pattern1 = Pattern{ .wildcard = Wildcard{} };
+            const result1 = pattern1.match(input);
+            try std.testing.expect(result1.bytes_consumed <= input.len);
+
+            // Test character variant
+            const pattern2 = Pattern{ .character = Character{ .character = 'x' } };
+            const result2 = pattern2.match(input);
+            try std.testing.expect(result2.bytes_consumed <= input.len);
+
+            // Test character class variant
+            const pattern3 = Pattern{ .character_class_3 = CharacterClass(3){ .characters = .{ 'a', 'b', 'c' } } };
+            const result3 = pattern3.match(input);
+            try std.testing.expect(result3.bytes_consumed <= input.len);
+
+            // Test concatenation variant
+            const pattern4 = Pattern{
+                .concatenation_2_char = Concatenation(struct { Character, Character }){
+                    .patterns = .{
+                        Character{ .character = 'a' },
+                        Character{ .character = 'b' },
+                    },
+                },
+            };
+            const result4 = pattern4.match(input);
+            try std.testing.expect(result4.bytes_consumed <= input.len);
+        }
+    };
+    try std.testing.fuzz(Context{}, Context.testOne, .{});
+}
