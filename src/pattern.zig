@@ -19,13 +19,13 @@ pub const Match = struct {
     /// Number of bytes consumed from the input string.
     /// Zero indicates no match or empty input.
     bytes_consumed: usize,
-    
+
     /// Matched groups. All groups > 0 are a substring of group 0.
     /// Empty slice indicates no match.
     groups: []const []const u8,
 
     const Self = @This();
-    
+
     /// Empty match constant for cases where no match occurred.
     /// Similar to ArrayListAligned.empty.
     pub const empty: Self = .{
@@ -331,7 +331,7 @@ pub fn CharacterClass(comptime size: usize) type {
         count: usize,
 
         const Self = @This();
-        
+
         /// Creates a CharacterClass from a compile-time character slice.
         /// The storage size must be >= slice length.
         ///
@@ -503,7 +503,7 @@ test "CharacterClass: init helper with size inference" {
     const result1 = vowels.match(input1);
     try std.testing.expectEqual(@as(usize, 1), result1.bytes_consumed);
     try std.testing.expectEqualStrings("a", result1.groups[0]);
-    
+
     const input2 = "banana";
     const result2 = vowels.match(input2);
     try std.testing.expectEqual(@as(usize, 0), result2.bytes_consumed);
@@ -515,7 +515,7 @@ test "CharacterClass: characterClass helper with automatic size inference" {
     const result1 = vowels.match(input1);
     try std.testing.expectEqual(@as(usize, 1), result1.bytes_consumed);
     try std.testing.expectEqualStrings("a", result1.groups[0]);
-    
+
     const digits = characterClass("0123456789");
     const input2 = "42";
     const result2 = digits.match(input2);
@@ -597,7 +597,7 @@ pub fn Concatenation(comptime max_size: usize) type {
         count: usize,
 
         const Self = @This();
-        
+
         /// Creates a Concatenation from a pattern slice.
         /// The count is taken from the slice length.
         ///
@@ -647,7 +647,7 @@ pub fn Concatenation(comptime max_size: usize) type {
             // Preconditions
             assert(self.count <= max_size);
             assert(self.count > 0);
-            
+
             var total_consumed: usize = 0;
             var current_input = input;
 
@@ -656,7 +656,7 @@ pub fn Concatenation(comptime max_size: usize) type {
             while (i < self.count) : (i += 1) {
                 // Loop invariant: i < self.count
                 assert(i < self.count);
-                
+
                 const pattern_match = self.patterns[i].match(current_input);
 
                 if (pattern_match.bytes_consumed == 0) {
