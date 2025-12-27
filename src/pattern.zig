@@ -362,11 +362,6 @@ test "Character: match special characters" {
 ///
 /// Since patterns are defined at compile time, the character set is stored
 /// as a compile-time array.
-///
-/// Helper function to create CharacterClass with inferred size:
-/// ```
-/// const vowels = characterClass("aeiou");
-/// ```
 pub fn characterClass(comptime characters: []const u8) CharacterClass(characters.len) {
     var result: CharacterClass(characters.len) = undefined;
     result.count = characters.len;
@@ -374,6 +369,17 @@ pub fn characterClass(comptime characters: []const u8) CharacterClass(characters
         result.characters[i] = c;
     }
     return result;
+}
+
+test characterClass {
+    // Helper function to create CharacterClass with inferred size
+    const vowels = characterClass("aeiou");
+    const input = "apple";
+    const result = vowels.match(input);
+
+    try std.testing.expectEqual(@as(usize, 1), result.bytes_consumed);
+    try std.testing.expectEqual(@as(usize, 1), result.groups_matched);
+    try std.testing.expectEqualStrings("a", input[result.groups[0].begin..result.groups[0].end]);
 }
 
 pub fn CharacterClass(comptime size: usize) type {
@@ -391,12 +397,6 @@ pub fn CharacterClass(comptime size: usize) type {
         ///
         /// Note: It's easier to use the module-level `characterClass()` function
         /// which infers the size automatically.
-        ///
-        /// Example:
-        /// ```
-        /// const cc = CharacterClass(10).init("aei"); // Uses 3 of 10 slots
-        /// const digits = CharacterClass(10).init("0123456789"); // Uses all 10 slots
-        /// ```
         pub fn init(comptime characters: []const u8) Self {
             assert(characters.len <= size);
             assert(characters.len > 0);
@@ -406,6 +406,22 @@ pub fn CharacterClass(comptime size: usize) type {
                 result.characters[i] = c;
             }
             return result;
+        }
+
+        test init {
+            // Example: Uses 3 of 10 slots
+            const cc = CharacterClass(10).init("aei");
+            try std.testing.expectEqual(@as(usize, 3), cc.count);
+
+            // Example: Uses all 10 slots
+            const digits = CharacterClass(10).init("0123456789");
+            try std.testing.expectEqual(@as(usize, 10), digits.count);
+
+            // Test matching
+            const input = "apple";
+            const result = cc.match(input);
+            try std.testing.expectEqual(@as(usize, 1), result.bytes_consumed);
+            try std.testing.expectEqualStrings("a", input[result.groups[0].begin..result.groups[0].end]);
         }
 
         /// Matches any character from the character set.
@@ -582,12 +598,6 @@ test "CharacterClass: characterClass helper with automatic size inference" {
 /// The size parameter determines:
 /// - Maximum size of CharacterClass character sets
 /// - Maximum number of patterns in Concatenation sequences
-///
-/// Example:
-/// ```
-/// const P = Pattern(10); // Supports CharacterClass up to 10 chars, Concatenation up to 10 patterns
-/// const pattern = P{ .character_class = characterClass("0123456789") };
-/// ```
 pub fn Pattern(comptime max_size: usize) type {
     return union(enum) {
         wildcard: Wildcard,
@@ -624,19 +634,36 @@ pub fn Pattern(comptime max_size: usize) type {
     };
 }
 
+test Pattern {
+    // Supports CharacterClass up to 10 chars, Concatenation up to 10 patterns
+    const P = Pattern(10);
+    const pattern = P{ .character_class = characterClass("0123456789") };
+
+    const input = "5 apples";
+    const result = pattern.match(input);
+    try std.testing.expectEqual(@as(usize, 1), result.bytes_consumed);
+    try std.testing.expectEqual(@as(usize, 1), result.groups_matched);
+    try std.testing.expectEqualStrings("5", input[result.groups[0].begin..result.groups[0].end]);
+}
+
 /// Helper function to create Concatenation with inferred size.
 /// The max_size is determined by the patterns slice length.
-///
-/// Example:
-/// ```
-/// const P = Pattern(10);
-/// const concat = concatenation(&[_]P{
-///     P{ .character = Character{ .character = 'h' } },
-///     P{ .character = Character{ .character = 'i' } },
-/// });
-/// ```
 pub fn concatenation(comptime patterns: anytype) Concatenation(patterns.len) {
     return Concatenation(patterns.len).init(patterns);
+}
+
+test concatenation {
+    const P = Pattern(10);
+    const p1 = P{ .character = Character{ .character = 'h' } };
+    const p2 = P{ .character = Character{ .character = 'i' } };
+    const patterns = [_]*const P{ &p1, &p2 };
+    const concat = Concatenation(10).init(&patterns);
+
+    const input = "hi there";
+    const result = concat.match(input);
+    try std.testing.expectEqual(@as(usize, 2), result.bytes_consumed);
+    try std.testing.expectEqual(@as(usize, 1), result.groups_matched);
+    try std.testing.expectEqualStrings("hi", input[result.groups[0].begin..result.groups[0].end]);
 }
 
 /// Concatenation pattern that matches sequential patterns.
@@ -660,15 +687,6 @@ pub fn Concatenation(comptime max_size: usize) type {
         /// Preconditions:
         /// - patterns.len <= max_size
         /// - patterns.len > 0
-        ///
-        /// Example:
-        /// ```
-        /// const P = Pattern(10);
-        /// const p1 = P{ .character = Character{ .character = 'a' } };
-        /// const p2 = P{ .character = Character{ .character = 'b' } };
-        /// const patterns = [_]*const P{ &p1, &p2 };
-        /// const concat = Concatenation(10).init(&patterns);
-        /// ```
         pub fn init(patterns: []const *const Pattern(max_size)) Self {
             assert(patterns.len <= max_size);
             assert(patterns.len > 0);
@@ -680,6 +698,22 @@ pub fn Concatenation(comptime max_size: usize) type {
             }
             // Remaining slots don't need initialization since we use count
             return result;
+        }
+
+        test init {
+            const P = Pattern(10);
+            const p1 = P{ .character = Character{ .character = 'a' } };
+            const p2 = P{ .character = Character{ .character = 'b' } };
+            const patterns = [_]*const P{ &p1, &p2 };
+            const concat = Concatenation(10).init(&patterns);
+
+            try std.testing.expectEqual(@as(usize, 2), concat.count);
+
+            const input = "abc";
+            const result = concat.match(input);
+            try std.testing.expectEqual(@as(usize, 2), result.bytes_consumed);
+            try std.testing.expectEqual(@as(usize, 1), result.groups_matched);
+            try std.testing.expectEqualStrings("ab", input[result.groups[0].begin..result.groups[0].end]);
         }
 
         /// Matches patterns in sequence.
