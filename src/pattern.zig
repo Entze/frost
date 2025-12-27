@@ -450,3 +450,259 @@ test "CharacterClass: single character set" {
     const result2 = class.match(input2);
     try std.testing.expectEqual(@as(usize, 0), result2.bytes_consumed);
 }
+
+/// Pattern tagged union containing all pattern variants.
+///
+/// This is the main abstraction for pattern matching. It delegates matching
+/// behavior to its variants.
+pub const Pattern = union(enum) {
+    wildcard: Wildcard,
+    character: Character,
+    character_class_1: CharacterClass(1),
+    character_class_2: CharacterClass(2),
+    character_class_3: CharacterClass(3),
+    character_class_10: CharacterClass(10),
+    concatenation_2_char: Concatenation(struct { Character, Character }),
+    concatenation_3_char: Concatenation(struct { Character, Character, Character }),
+    concatenation_mixed_3: Concatenation(struct { Character, Wildcard, CharacterClass(3) }),
+
+    const Self = @This();
+
+    /// Matches the pattern against the input.
+    ///
+    /// Preconditions:
+    /// - input must be valid UTF-8 slice
+    ///
+    /// Postconditions:
+    /// - Returns Match result from the active variant
+    ///
+    /// Ownership:
+    /// - input slice is borrowed, not owned
+    /// - returned Match.groups references input memory
+    ///
+    /// Lifetime:
+    /// - input must remain valid for lifetime of returned Match
+    pub fn match(self: Self, input: []const u8) Match {
+        return switch (self) {
+            .wildcard => |w| w.match(input),
+            .character => |c| c.match(input),
+            .character_class_1 => |cc| cc.match(input),
+            .character_class_2 => |cc| cc.match(input),
+            .character_class_3 => |cc| cc.match(input),
+            .character_class_10 => |cc| cc.match(input),
+            .concatenation_2_char => |cat| cat.match(input),
+            .concatenation_3_char => |cat| cat.match(input),
+            .concatenation_mixed_3 => |cat| cat.match(input),
+        };
+    }
+};
+
+/// Concatenation pattern that matches sequential patterns.
+///
+/// Since patterns are defined at compile time, this is a generic type that
+/// accepts pattern types as compile-time parameters.
+pub fn Concatenation(comptime PatternTypes: type) type {
+    return struct {
+        patterns: PatternTypes,
+
+        const Self = @This();
+
+        /// Matches patterns in sequence.
+        ///
+        /// Preconditions:
+        /// - input must be valid UTF-8 slice
+        ///
+        /// Postconditions:
+        /// - If any pattern fails to match, returns Match with 0 bytes consumed
+        /// - If all patterns match, returns Match with total bytes consumed and groups[0] = entire matched string
+        ///
+        /// Ownership:
+        /// - input slice is borrowed, not owned
+        /// - returned Match.groups references input memory
+        ///
+        /// Lifetime:
+        /// - input must remain valid for lifetime of returned Match
+        pub fn match(self: Self, input: []const u8) Match {
+            var total_consumed: usize = 0;
+            var current_input = input;
+
+            // Use comptime to iterate over tuple fields
+            inline for (@typeInfo(PatternTypes).@"struct".fields) |field| {
+                const pattern = @field(self.patterns, field.name);
+                const pattern_match = pattern.match(current_input);
+
+                if (pattern_match.bytes_consumed == 0) {
+                    // Pattern failed to match
+                    const empty_groups: []const []const u8 = &[_][]const u8{};
+                    const result = Match.init(0, empty_groups);
+
+                    // Postconditions
+                    defer assert(result.bytes_consumed == 0);
+                    defer assert(result.groups.len == 0);
+
+                    return result;
+                }
+
+                total_consumed += pattern_match.bytes_consumed;
+                current_input = current_input[pattern_match.bytes_consumed..];
+            }
+
+            // All patterns matched successfully
+            const matched = input[0..total_consumed];
+            const groups = &[_][]const u8{matched};
+            const result = Match.init(total_consumed, groups);
+
+            // Postconditions
+            defer assert(result.bytes_consumed == total_consumed);
+            defer assert(result.groups.len == 1);
+            defer assert(result.groups[0].len == total_consumed);
+
+            return result;
+        }
+    };
+}
+
+test "Pattern: wildcard variant" {
+    const pattern = Pattern{ .wildcard = Wildcard{} };
+    const input = "hello";
+    const result = pattern.match(input);
+
+    try std.testing.expectEqual(@as(usize, 1), result.bytes_consumed);
+    try std.testing.expectEqualStrings("h", result.groups[0]);
+}
+
+test "Pattern: character variant matching" {
+    const pattern = Pattern{ .character = Character{ .character = 'h' } };
+    const input = "hello";
+    const result = pattern.match(input);
+
+    try std.testing.expectEqual(@as(usize, 1), result.bytes_consumed);
+    try std.testing.expectEqualStrings("h", result.groups[0]);
+}
+
+test "Pattern: character variant not matching" {
+    const pattern = Pattern{ .character = Character{ .character = 'x' } };
+    const input = "hello";
+    const result = pattern.match(input);
+
+    try std.testing.expectEqual(@as(usize, 0), result.bytes_consumed);
+}
+
+test "Pattern: character class variant" {
+    const pattern = Pattern{ .character_class_3 = CharacterClass(3){ .characters = .{ 'a', 'e', 'i' } } };
+
+    const input1 = "apple";
+    const result1 = pattern.match(input1);
+    try std.testing.expectEqual(@as(usize, 1), result1.bytes_consumed);
+    try std.testing.expectEqualStrings("a", result1.groups[0]);
+
+    const input2 = "banana";
+    const result2 = pattern.match(input2);
+    try std.testing.expectEqual(@as(usize, 0), result2.bytes_consumed);
+}
+
+test "Concatenation: match empty input" {
+    const concat = Concatenation(struct { Character, Character }){
+        .patterns = .{
+            Character{ .character = 'a' },
+            Character{ .character = 'b' },
+        },
+    };
+    const input = "";
+    const result = concat.match(input);
+
+    try std.testing.expectEqual(@as(usize, 0), result.bytes_consumed);
+    try std.testing.expectEqual(@as(usize, 0), result.groups.len);
+}
+
+test "Concatenation: match two characters" {
+    const concat = Concatenation(struct { Character, Character }){
+        .patterns = .{
+            Character{ .character = 'a' },
+            Character{ .character = 'b' },
+        },
+    };
+    const input = "abc";
+    const result = concat.match(input);
+
+    try std.testing.expectEqual(@as(usize, 2), result.bytes_consumed);
+    try std.testing.expectEqual(@as(usize, 1), result.groups.len);
+    try std.testing.expectEqualStrings("ab", result.groups[0]);
+}
+
+test "Concatenation: partial match fails" {
+    const concat = Concatenation(struct { Character, Character, Character }){
+        .patterns = .{
+            Character{ .character = 'a' },
+            Character{ .character = 'b' },
+            Character{ .character = 'c' },
+        },
+    };
+    const input = "abx";
+    const result = concat.match(input);
+
+    try std.testing.expectEqual(@as(usize, 0), result.bytes_consumed);
+    try std.testing.expectEqual(@as(usize, 0), result.groups.len);
+}
+
+test "Concatenation: mixed pattern types" {
+    const concat = Concatenation(struct { Character, Wildcard, CharacterClass(3) }){
+        .patterns = .{
+            Character{ .character = 'h' },
+            Wildcard{},
+            CharacterClass(3){ .characters = .{ 'l', 'm', 'n' } },
+        },
+    };
+    const input = "hello";
+    const result = concat.match(input);
+
+    try std.testing.expectEqual(@as(usize, 3), result.bytes_consumed);
+    try std.testing.expectEqual(@as(usize, 1), result.groups.len);
+    try std.testing.expectEqualStrings("hel", result.groups[0]);
+}
+
+test "Concatenation: first pattern fails" {
+    const concat = Concatenation(struct { Character, Character }){
+        .patterns = .{
+            Character{ .character = 'x' },
+            Character{ .character = 'b' },
+        },
+    };
+    const input = "abc";
+    const result = concat.match(input);
+
+    try std.testing.expectEqual(@as(usize, 0), result.bytes_consumed);
+    try std.testing.expectEqual(@as(usize, 0), result.groups.len);
+}
+
+test "Concatenation: insufficient input" {
+    const concat = Concatenation(struct { Character, Character, Character, Character }){
+        .patterns = .{
+            Character{ .character = 'a' },
+            Character{ .character = 'b' },
+            Character{ .character = 'c' },
+            Character{ .character = 'd' },
+        },
+    };
+    const input = "abc";
+    const result = concat.match(input);
+
+    try std.testing.expectEqual(@as(usize, 0), result.bytes_consumed);
+    try std.testing.expectEqual(@as(usize, 0), result.groups.len);
+}
+
+test "Pattern: concatenation variant" {
+    const pattern = Pattern{
+        .concatenation_2_char = Concatenation(struct { Character, Character }){
+            .patterns = .{
+                Character{ .character = 'h' },
+                Character{ .character = 'i' },
+            },
+        },
+    };
+    const input = "hi there";
+    const result = pattern.match(input);
+
+    try std.testing.expectEqual(@as(usize, 2), result.bytes_consumed);
+    try std.testing.expectEqualStrings("hi", result.groups[0]);
+}
