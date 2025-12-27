@@ -179,3 +179,120 @@ test "Wildcard: match special characters" {
     try std.testing.expectEqual(@as(usize, 1), result3.bytes_consumed);
     try std.testing.expectEqualStrings(" ", result3.groups[0]);
 }
+
+/// Character pattern that matches a specific single character.
+pub const Character = struct {
+    character: u8,
+
+    const Self = @This();
+
+    /// Matches the specified character from the input.
+    ///
+    /// Preconditions:
+    /// - input must be valid UTF-8 slice
+    ///
+    /// Postconditions:
+    /// - If input is empty or first character doesn't match, returns Match with 0 bytes consumed
+    /// - If first character matches, returns Match with 1 byte consumed and groups[0] = matched character
+    ///
+    /// Ownership:
+    /// - input slice is borrowed, not owned
+    /// - returned Match.groups references input memory
+    ///
+    /// Lifetime:
+    /// - input must remain valid for lifetime of returned Match
+    pub fn match(self: Self, input: []const u8) Match {
+        // Preconditions - validated by type system
+
+        if (input.len == 0) {
+            // No input to match
+            const empty_groups: []const []const u8 = &[_][]const u8{};
+            const result = Match.init(0, empty_groups);
+
+            // Postconditions
+            defer assert(result.bytes_consumed == 0);
+            defer assert(result.groups.len == 0);
+
+            return result;
+        }
+
+        if (input[0] != self.character) {
+            // Character doesn't match
+            const empty_groups: []const []const u8 = &[_][]const u8{};
+            const result = Match.init(0, empty_groups);
+
+            // Postconditions
+            defer assert(result.bytes_consumed == 0);
+            defer assert(result.groups.len == 0);
+
+            return result;
+        }
+
+        // Character matches
+        const matched = input[0..1];
+        const groups = &[_][]const u8{matched};
+        const result = Match.init(1, groups);
+
+        // Postconditions
+        defer assert(result.bytes_consumed == 1);
+        defer assert(result.groups.len == 1);
+        defer assert(result.groups[0].len == 1);
+        defer assert(result.groups[0][0] == self.character);
+
+        return result;
+    }
+};
+
+test "Character: match empty input" {
+    const char = Character{ .character = 'a' };
+    const input = "";
+    const result = char.match(input);
+
+    try std.testing.expectEqual(@as(usize, 0), result.bytes_consumed);
+    try std.testing.expectEqual(@as(usize, 0), result.groups.len);
+}
+
+test "Character: match matching character" {
+    const char = Character{ .character = 'a' };
+    const input = "abc";
+    const result = char.match(input);
+
+    try std.testing.expectEqual(@as(usize, 1), result.bytes_consumed);
+    try std.testing.expectEqual(@as(usize, 1), result.groups.len);
+    try std.testing.expectEqualStrings("a", result.groups[0]);
+}
+
+test "Character: no match for different character" {
+    const char = Character{ .character = 'a' };
+    const input = "bcd";
+    const result = char.match(input);
+
+    try std.testing.expectEqual(@as(usize, 0), result.bytes_consumed);
+    try std.testing.expectEqual(@as(usize, 0), result.groups.len);
+}
+
+test "Character: match first character only" {
+    const char = Character{ .character = 'h' };
+    const input = "hello";
+    const result = char.match(input);
+
+    try std.testing.expectEqual(@as(usize, 1), result.bytes_consumed);
+    try std.testing.expectEqual(@as(usize, 1), result.groups.len);
+    try std.testing.expectEqualStrings("h", result.groups[0]);
+}
+
+test "Character: match special characters" {
+    // Test newline
+    const char1 = Character{ .character = '\n' };
+    const input1 = "\ntest";
+    const result1 = char1.match(input1);
+    try std.testing.expectEqual(@as(usize, 1), result1.bytes_consumed);
+    try std.testing.expectEqualStrings("\n", result1.groups[0]);
+
+    // Test digit
+    const char2 = Character{ .character = '5' };
+    const input2 = "5678";
+    const result2 = char2.match(input2);
+    try std.testing.expectEqual(@as(usize, 1), result2.bytes_consumed);
+    try std.testing.expectEqualStrings("5", result2.groups[0]);
+}
