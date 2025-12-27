@@ -129,8 +129,11 @@ pub const Wildcard = struct {
 
         // Match first character
         const matched = input[0..1];
-        const groups = &[_][]const u8{matched};
-        const result = Match.init(1, groups);
+        const static = struct {
+            var groups_storage: [1][]const u8 = undefined;
+        };
+        static.groups_storage[0] = matched;
+        const result = Match.init(1, &static.groups_storage);
 
         // Postconditions
         defer assert(result.bytes_consumed == 1);
@@ -240,8 +243,11 @@ pub const Character = struct {
 
         // Character matches
         const matched = input[0..1];
-        const groups = &[_][]const u8{matched};
-        const result = Match.init(1, groups);
+        const static = struct {
+            var groups_storage: [1][]const u8 = undefined;
+        };
+        static.groups_storage[0] = matched;
+        const result = Match.init(1, &static.groups_storage);
 
         // Postconditions
         defer assert(result.bytes_consumed == 1);
@@ -398,8 +404,11 @@ pub fn CharacterClass(comptime size: usize) type {
                 if (self.characters[i] == first_char) {
                     // Character matches
                     const matched = input[0..1];
-                    const groups = &[_][]const u8{matched};
-                    const result = Match.init(1, groups);
+                    const static = struct {
+                        var groups_storage: [1][]const u8 = undefined;
+                    };
+                    static.groups_storage[0] = matched;
+                    const result = Match.init(1, &static.groups_storage);
 
                     // Postconditions
                     defer assert(result.bytes_consumed == 1);
@@ -676,8 +685,11 @@ pub fn Concatenation(comptime max_size: usize) type {
 
             // All patterns matched successfully
             const matched = input[0..total_consumed];
-            const groups = &[_][]const u8{matched};
-            const result = Match.init(total_consumed, groups);
+            const static = struct {
+                var groups_storage: [1][]const u8 = undefined;
+            };
+            static.groups_storage[0] = matched;
+            const result = Match.init(total_consumed, &static.groups_storage);
 
             // Postconditions
             defer assert(result.bytes_consumed == total_consumed);
