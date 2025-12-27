@@ -20,6 +20,9 @@ run = "zig test src/root.zig"
 [tasks."test:zig:main"]
 run = "zig test src/main.zig"
 
+[tasks."test:zig:pattern"]
+run = "zig test src/pattern.zig"
+
 [tasks.check]
 usage = '''
 arg "[paths]" var=#true

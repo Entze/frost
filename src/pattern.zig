@@ -16,10 +16,22 @@ const assert = std.debug.assert;
 /// Contains the number of bytes consumed from the input and a slice of matched groups.
 /// Group 0 represents the entire matched pattern.
 pub const Match = struct {
+    /// Number of bytes consumed from the input string.
+    /// Zero indicates no match or empty input.
     bytes_consumed: usize,
+    
+    /// Matched groups. All groups > 0 are a substring of group 0.
+    /// Empty slice indicates no match.
     groups: []const []const u8,
 
     const Self = @This();
+    
+    /// Empty match constant for cases where no match occurred.
+    /// Similar to ArrayListAligned.empty.
+    pub const empty: Self = .{
+        .bytes_consumed = 0,
+        .groups = &[_][]const u8{},
+    };
 
     /// Creates a new Match result.
     ///
@@ -206,8 +218,7 @@ pub const Character = struct {
 
         if (input.len == 0) {
             // No input to match
-            const empty_groups: []const []const u8 = &[_][]const u8{};
-            const result = Match.init(0, empty_groups);
+            const result = Match.empty;
 
             // Postconditions
             defer assert(result.bytes_consumed == 0);
@@ -218,8 +229,7 @@ pub const Character = struct {
 
         if (input[0] != self.character) {
             // Character doesn't match
-            const empty_groups: []const []const u8 = &[_][]const u8{};
-            const result = Match.init(0, empty_groups);
+            const result = Match.empty;
 
             // Postconditions
             defer assert(result.bytes_consumed == 0);
@@ -329,8 +339,7 @@ pub fn CharacterClass(comptime size: usize) type {
 
             if (input.len == 0) {
                 // No input to match
-                const empty_groups: []const []const u8 = &[_][]const u8{};
-                const result = Match.init(0, empty_groups);
+                const result = Match.empty;
 
                 // Postconditions
                 defer assert(result.bytes_consumed == 0);
@@ -365,8 +374,7 @@ pub fn CharacterClass(comptime size: usize) type {
             }
 
             // No match found
-            const empty_groups: []const []const u8 = &[_][]const u8{};
-            const result = Match.init(0, empty_groups);
+            const result = Match.empty;
 
             // Postconditions
             defer assert(result.bytes_consumed == 0);
@@ -539,8 +547,7 @@ pub fn Concatenation(comptime PatternTypes: type) type {
 
                 if (pattern_match.bytes_consumed == 0) {
                     // Pattern failed to match
-                    const empty_groups: []const []const u8 = &[_][]const u8{};
-                    const result = Match.init(0, empty_groups);
+                    const result = Match.empty;
 
                     // Postconditions
                     defer assert(result.bytes_consumed == 0);
