@@ -54,4 +54,3 @@ jobs:
           default_author: github_actions
           push: true
           tag: "v${{ steps.version.outputs.version }}"
-          tag_push: "--force"

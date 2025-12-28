@@ -6,6 +6,22 @@ version=$(bump-my-version show current_version)
 date=$(date +%Y-%m-%d)
 header="## $version ($date)"
 
-# Insert new version header after "# Changelog" line
-awk -v header="$header" '/^# Changelog/ {print; print ""; print header; next} 1' CHANGELOG.md > CHANGELOG.md.tmp
+# Insert new version header before the first ## heading (or at end if none exist)
+# This keeps the abstract before all version entries
+awk -v header="$header" '
+  !inserted && /^## / {
+    print ""
+    print header
+    print ""
+    inserted=1
+  }
+  { print }
+  END {
+    if (!inserted) {
+      print ""
+      print header
+      print ""
+    }
+  }
+' CHANGELOG.md > CHANGELOG.md.tmp
 mv CHANGELOG.md.tmp CHANGELOG.md
