@@ -12,8 +12,35 @@ const Pattern = @import("../pattern.zig").Pattern;
 
 /// Helper function to create Concatenation with inferred size.
 /// The max_size is determined by the patterns slice length.
+///
+/// **Note**: This helper has limitations due to type inference.
+/// It infers max_size from pattern count rather than from Pattern's max_size,
+/// which can cause type mismatches. Consider using `Concatenation(max_size).init()` directly instead.
 pub fn concatenation(comptime patterns: anytype) Concatenation(patterns.len) {
     return Concatenation(patterns.len).init(patterns);
+}
+
+test "Concatenation.init: should match sequential patterns" {
+    // Expected: Match "hi" from "hi there"
+    const expected_bytes: usize = 2;
+    const expected_groups: usize = 1;
+    const expected_match = "hi";
+
+    // Actual: Create and use Concatenation.init (note: concatenation helper has limitations)
+    const P = Pattern(10);
+    const Character = @import("character.zig").Character;
+    const p1 = P{ .character = Character(10){ .character = 'h' } };
+    const p2 = P{ .character = Character(10){ .character = 'i' } };
+    const patterns = [_]*const P{ &p1, &p2 };
+    const concat = Concatenation(10).init(&patterns);
+    const input = "hi there";
+    const result = concat.match(input);
+    const actual_match = input[result.groups[0].begin..result.groups[0].end];
+
+    // Verify expectations
+    try std.testing.expectEqual(expected_bytes, result.bytes_consumed);
+    try std.testing.expectEqual(expected_groups, result.groups_matched);
+    try std.testing.expectEqualStrings(expected_match, actual_match);
 }
 
 /// Concatenation pattern that matches sequential patterns.
@@ -65,6 +92,31 @@ pub fn Concatenation(comptime max_size: usize) type {
             try std.testing.expectEqual(@as(usize, 2), result.bytes_consumed);
             try std.testing.expectEqual(@as(usize, 1), result.groups_matched);
             try std.testing.expectEqualStrings("ab", input[result.groups[0].begin..result.groups[0].end]);
+        }
+
+        test "init: should create Concatenation and match pattern sequence" {
+            // Expected: Create Concatenation matching "ab" in "abc"
+            const expected_count: usize = 2;
+            const expected_bytes: usize = 2;
+            const expected_groups: usize = 1;
+            const expected_match = "ab";
+
+            // Actual: Create and use Concatenation.init
+            const P = Pattern(10);
+            const Character = @import("character.zig").Character;
+            const p1 = P{ .character = Character(10){ .character = 'a' } };
+            const p2 = P{ .character = Character(10){ .character = 'b' } };
+            const patterns = [_]*const P{ &p1, &p2 };
+            const concat = Concatenation(10).init(&patterns);
+            const input = "abc";
+            const result = concat.match(input);
+            const actual_match = input[result.groups[0].begin..result.groups[0].end];
+
+            // Verify expectations
+            try std.testing.expectEqual(expected_count, concat.count);
+            try std.testing.expectEqual(expected_bytes, result.bytes_consumed);
+            try std.testing.expectEqual(expected_groups, result.groups_matched);
+            try std.testing.expectEqualStrings(expected_match, actual_match);
         }
 
         /// Matches patterns in sequence.

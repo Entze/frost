@@ -18,6 +18,44 @@ pub fn characterClass(comptime characters: []const u8) CharacterClass(characters
     return result;
 }
 
+test "characterClass: should match first vowel in input" {
+    // Expected: Match first vowel 'a' in "apple"
+    const expected_bytes: usize = 1;
+    const expected_groups: usize = 1;
+    const expected_match = "a";
+
+    // Actual: Create and use characterClass
+    const vowels = characterClass("aeiou");
+    const input = "apple";
+    const result = vowels.match(input);
+    const actual_match = input[result.groups[0].begin..result.groups[0].end];
+
+    // Verify expectations
+    try std.testing.expectEqual(expected_bytes, result.bytes_consumed);
+    try std.testing.expectEqual(expected_groups, result.groups_matched);
+    try std.testing.expectEqualStrings(expected_match, actual_match);
+}
+
+test "characterClass: should equal manual init with same characters" {
+    // Create using convenience constructor
+    const cc_convenience = characterClass("aeiou");
+
+    // Create manually using init
+    const cc_manual = CharacterClass(5).init("aeiou");
+
+    // Verify they are equivalent
+    try std.testing.expectEqual(cc_manual.count, cc_convenience.count);
+    try std.testing.expectEqualSlices(u8, cc_manual.characters[0..cc_manual.count], cc_convenience.characters[0..cc_convenience.count]);
+
+    // Verify they match the same input
+    const input = "orange";
+    const result_convenience = cc_convenience.match(input);
+    const result_manual = cc_manual.match(input);
+
+    try std.testing.expectEqual(result_manual.bytes_consumed, result_convenience.bytes_consumed);
+    try std.testing.expectEqual(result_manual.groups_matched, result_convenience.groups_matched);
+}
+
 test characterClass {
     // Helper function to create CharacterClass with inferred size
     const vowels = characterClass("aeiou");
@@ -73,6 +111,26 @@ pub fn CharacterClass(comptime size: usize) type {
             const result = cc.match(input);
             try std.testing.expectEqual(@as(usize, 1), result.bytes_consumed);
             try std.testing.expectEqualStrings("a", input[result.groups[0].begin..result.groups[0].end]);
+        }
+
+        test "init: should create CharacterClass and match specified characters" {
+            // Expected: Create CharacterClass with 3 vowels that matches 'a' in "apple"
+            const expected_count: usize = 3;
+            const expected_bytes: usize = 1;
+            const expected_groups: usize = 1;
+            const expected_match = "a";
+
+            // Actual: Create and use CharacterClass.init
+            const cc = CharacterClass(10).init("aei");
+            const input = "apple";
+            const result = cc.match(input);
+            const actual_match = input[result.groups[0].begin..result.groups[0].end];
+
+            // Verify expectations
+            try std.testing.expectEqual(expected_count, cc.count);
+            try std.testing.expectEqual(expected_bytes, result.bytes_consumed);
+            try std.testing.expectEqual(expected_groups, result.groups_matched);
+            try std.testing.expectEqualStrings(expected_match, actual_match);
         }
 
         /// Matches any character from the character set.
