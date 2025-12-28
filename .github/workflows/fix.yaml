@@ -3,6 +3,7 @@ on: workflow_dispatch
 
 permissions:
   actions: write
+  contents: write
 
 jobs:
   fix:
@@ -24,4 +25,5 @@ jobs:
         uses: EndBug/add-and-commit@v9
         with:
           message: "Apply 'mise run fix --all'"
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           push: true
