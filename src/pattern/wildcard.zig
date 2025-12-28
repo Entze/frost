@@ -6,57 +6,60 @@ const MatchGroup = @import("match_group.zig").MatchGroup;
 const Match = @import("match.zig").Match;
 
 /// Wildcard pattern that matches any single character (regex `.`).
-pub const Wildcard = struct {
-    const Self = @This();
+/// 
+/// This is a function that returns a struct, allowing the Match return type
+/// to be sized appropriately for the containing Pattern.
+pub fn Wildcard(comptime max_groups: usize) type {
+    return struct {
+        const Self = @This();
 
-    /// Number of groups this pattern produces (always 1: the full match).
-    pub const groups_count = 1;
+        /// Matches any single character from the input.
+        ///
+        /// Preconditions:
+        /// - input must be valid UTF-8 slice
+        ///
+        /// Postconditions:
+        /// - If input is empty, returns Match with 0 bytes consumed and 0 groups
+        /// - If input is non-empty, returns Match with 1 byte consumed and 1 group
+        ///
+        /// Ownership:
+        /// - input slice is borrowed, not owned
+        ///
+        /// Lifetime:
+        /// - input must remain valid for lifetime of returned Match
+        pub fn match(self: Self, input: []const u8) Match(max_groups) {
+            _ = self;
 
-    /// Matches any single character from the input.
-    ///
-    /// Preconditions:
-    /// - input must be valid UTF-8 slice
-    ///
-    /// Postconditions:
-    /// - If input is empty, returns Match with 0 bytes consumed and 0 groups
-    /// - If input is non-empty, returns Match with 1 byte consumed and 1 group
-    ///
-    /// Ownership:
-    /// - input slice is borrowed, not owned
-    ///
-    /// Lifetime:
-    /// - input must remain valid for lifetime of returned Match
-    pub fn match(self: Self, input: []const u8) Match(groups_count) {
-        _ = self;
+            // Preconditions - input is already validated by type system
 
-        // Preconditions - input is already validated by type system
+            if (input.len == 0) {
+                // No input to match
+                const result = Match(max_groups).empty;
 
-        if (input.len == 0) {
-            // No input to match
-            const result = Match(groups_count).empty;
+                // Postconditions
+                defer assert(result.bytes_consumed == 0);
+                defer assert(result.groups_matched == 0);
+
+                return result;
+            }
+
+            // Match first character
+            var groups = [_]MatchGroup{MatchGroup{ .begin = 0, .end = 0 }} ** max_groups;
+            groups[0] = MatchGroup.init(0, 1);
+            const result = Match(max_groups).init(1, 1, groups);
 
             // Postconditions
-            defer assert(result.bytes_consumed == 0);
-            defer assert(result.groups_matched == 0);
+            defer assert(result.bytes_consumed == 1);
+            defer assert(result.groups_matched == 1);
+            defer assert(result.groups[0].len() == 1);
 
             return result;
         }
-
-        // Match first character
-        const groups = [_]MatchGroup{MatchGroup.init(0, 1)};
-        const result = Match(groups_count).init(1, 1, groups);
-
-        // Postconditions
-        defer assert(result.bytes_consumed == 1);
-        defer assert(result.groups_matched == 1);
-        defer assert(result.groups[0].len() == 1);
-
-        return result;
-    }
-};
+    };
+}
 
 test "Wildcard: match empty input" {
-    const wildcard = Wildcard{};
+    const wildcard = Wildcard(1){};
     const input = "";
     const result = wildcard.match(input);
 
@@ -65,7 +68,7 @@ test "Wildcard: match empty input" {
 }
 
 test "Wildcard: match single character" {
-    const wildcard = Wildcard{};
+    const wildcard = Wildcard(1){};
     const input = "a";
     const result = wildcard.match(input);
 
@@ -77,7 +80,7 @@ test "Wildcard: match single character" {
 }
 
 test "Wildcard: match first character of multiple" {
-    const wildcard = Wildcard{};
+    const wildcard = Wildcard(1){};
     const input = "hello";
     const result = wildcard.match(input);
 
@@ -87,7 +90,7 @@ test "Wildcard: match first character of multiple" {
 }
 
 test "Wildcard: match special characters" {
-    const wildcard = Wildcard{};
+    const wildcard = Wildcard(1){};
 
     // Test newline
     const input1 = "\n";
@@ -112,7 +115,7 @@ test "fuzz: Wildcard never panics" {
     const Context = struct {
         fn testOne(context: @This(), input: []const u8) anyerror!void {
             _ = context;
-            const wildcard = Wildcard{};
+            const wildcard = Wildcard(1){};
             const result = wildcard.match(input);
             // Wildcard should never panic and should consume 0 or 1 bytes
             try std.testing.expect(result.bytes_consumed <= 1);

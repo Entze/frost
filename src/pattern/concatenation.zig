@@ -53,8 +53,8 @@ pub fn Concatenation(comptime max_size: usize) type {
         test init {
             const P = Pattern(10);
             const Character = @import("character.zig").Character;
-            const p1 = P{ .character = Character{ .character = 'a' } };
-            const p2 = P{ .character = Character{ .character = 'b' } };
+            const p1 = P{ .character = Character(10){ .character = 'a' } };
+            const p2 = P{ .character = Character(10){ .character = 'b' } };
             const patterns = [_]*const P{ &p1, &p2 };
             const concat = Concatenation(10).init(&patterns);
 
@@ -83,13 +83,15 @@ pub fn Concatenation(comptime max_size: usize) type {
         ///
         /// Lifetime:
         /// - input must remain valid for lifetime of returned Match
-        pub fn match(self: Self, input: []const u8) Match(groups_count) {
+        pub fn match(self: Self, input: []const u8) Match(max_size) {
             // Preconditions
             assert(self.count <= max_size);
             assert(self.count > 0);
 
             var total_consumed: usize = 0;
             var current_input = input;
+            var total_groups: usize = 1; // Start with 1 for group 0 (full match)
+            var all_groups = [_]MatchGroup{MatchGroup{ .begin = 0, .end = 0 }} ** max_size;
 
             // Loop has determinable upper bound: self.count (compile-time validated <= max_size)
             var i: usize = 0;
@@ -101,7 +103,7 @@ pub fn Concatenation(comptime max_size: usize) type {
 
                 if (pattern_match.bytes_consumed == 0) {
                     // Pattern failed to match
-                    const result = Match(groups_count).empty;
+                    const result = Match(max_size).empty;
 
                     // Postconditions
                     defer assert(result.bytes_consumed == 0);
@@ -110,17 +112,33 @@ pub fn Concatenation(comptime max_size: usize) type {
                     return result;
                 }
 
+                // Collect capture groups from this subpattern (skip group 0 which is the subpattern's full match)
+                var j: usize = 1;
+                while (j < pattern_match.groups_matched) : (j += 1) {
+                    assert(j < pattern_match.groups_matched);
+                    assert(total_groups < max_size);
+                    
+                    // Adjust group positions relative to concatenation start
+                    const group = pattern_match.groups[j];
+                    all_groups[total_groups] = MatchGroup.init(
+                        group.begin + total_consumed,
+                        group.end + total_consumed
+                    );
+                    total_groups += 1;
+                }
+
                 total_consumed += pattern_match.bytes_consumed;
                 current_input = current_input[pattern_match.bytes_consumed..];
             }
 
             // All patterns matched successfully
-            const groups = [_]MatchGroup{MatchGroup.init(0, total_consumed)};
-            const result = Match(groups_count).init(total_consumed, 1, groups);
+            // Group 0 is the full concatenation match
+            all_groups[0] = MatchGroup.init(0, total_consumed);
+            const result = Match(max_size).init(total_consumed, total_groups, all_groups);
 
             // Postconditions
             defer assert(result.bytes_consumed == total_consumed);
-            defer assert(result.groups_matched == 1);
+            defer assert(result.groups_matched == total_groups);
             defer assert(result.groups[0].len() == total_consumed);
 
             return result;
@@ -131,8 +149,8 @@ pub fn Concatenation(comptime max_size: usize) type {
 test "Concatenation: match empty input" {
     const P = Pattern(10);
     const Character = @import("character.zig").Character;
-    const p1 = P{ .character = Character{ .character = 'a' } };
-    const p2 = P{ .character = Character{ .character = 'b' } };
+    const p1 = P{ .character = Character(10){ .character = 'a' } };
+    const p2 = P{ .character = Character(10){ .character = 'b' } };
     const patterns = [_]*const P{ &p1, &p2 };
     const concat = Concatenation(10).init(&patterns);
     const input = "";
@@ -145,8 +163,8 @@ test "Concatenation: match empty input" {
 test "Concatenation: match two characters" {
     const P = Pattern(10);
     const Character = @import("character.zig").Character;
-    const p1 = P{ .character = Character{ .character = 'a' } };
-    const p2 = P{ .character = Character{ .character = 'b' } };
+    const p1 = P{ .character = Character(10){ .character = 'a' } };
+    const p2 = P{ .character = Character(10){ .character = 'b' } };
     const patterns = [_]*const P{ &p1, &p2 };
     const concat = Concatenation(10).init(&patterns);
     const input = "abc";
@@ -160,9 +178,9 @@ test "Concatenation: match two characters" {
 test "Concatenation: partial match fails" {
     const P = Pattern(10);
     const Character = @import("character.zig").Character;
-    const p1 = P{ .character = Character{ .character = 'a' } };
-    const p2 = P{ .character = Character{ .character = 'b' } };
-    const p3 = P{ .character = Character{ .character = 'c' } };
+    const p1 = P{ .character = Character(10){ .character = 'a' } };
+    const p2 = P{ .character = Character(10){ .character = 'b' } };
+    const p3 = P{ .character = Character(10){ .character = 'c' } };
     const patterns = [_]*const P{ &p1, &p2, &p3 };
     const concat = Concatenation(10).init(&patterns);
     const input = "abx";
@@ -177,8 +195,8 @@ test "Concatenation: mixed pattern types" {
     const Character = @import("character.zig").Character;
     const Wildcard = @import("wildcard.zig").Wildcard;
     const CharacterClass = @import("character_class.zig").CharacterClass;
-    const p1 = P{ .character = Character{ .character = 'h' } };
-    const p2 = P{ .wildcard = Wildcard{} };
+    const p1 = P{ .character = Character(10){ .character = 'h' } };
+    const p2 = P{ .wildcard = Wildcard(10){} };
     const cc = CharacterClass(10).init("lmn");
     const p3 = P{ .character_class = cc };
     const patterns = [_]*const P{ &p1, &p2, &p3 };
@@ -194,8 +212,8 @@ test "Concatenation: mixed pattern types" {
 test "Concatenation: first pattern fails" {
     const P = Pattern(10);
     const Character = @import("character.zig").Character;
-    const p1 = P{ .character = Character{ .character = 'x' } };
-    const p2 = P{ .character = Character{ .character = 'b' } };
+    const p1 = P{ .character = Character(10){ .character = 'x' } };
+    const p2 = P{ .character = Character(10){ .character = 'b' } };
     const patterns = [_]*const P{ &p1, &p2 };
     const concat = Concatenation(10).init(&patterns);
     const input = "abc";
@@ -208,10 +226,10 @@ test "Concatenation: first pattern fails" {
 test "Concatenation: insufficient input" {
     const P = Pattern(10);
     const Character = @import("character.zig").Character;
-    const p1 = P{ .character = Character{ .character = 'a' } };
-    const p2 = P{ .character = Character{ .character = 'b' } };
-    const p3 = P{ .character = Character{ .character = 'c' } };
-    const p4 = P{ .character = Character{ .character = 'd' } };
+    const p1 = P{ .character = Character(10){ .character = 'a' } };
+    const p2 = P{ .character = Character(10){ .character = 'b' } };
+    const p3 = P{ .character = Character(10){ .character = 'c' } };
+    const p4 = P{ .character = Character(10){ .character = 'd' } };
     const patterns = [_]*const P{ &p1, &p2, &p3, &p4 };
     const concat = Concatenation(10).init(&patterns);
     const input = "abc";
@@ -227,9 +245,9 @@ test "fuzz: Concatenation never panics" {
             _ = context;
             const P = Pattern(10);
             const Character = @import("character.zig").Character;
-            const p1 = P{ .character = Character{ .character = 'a' } };
-            const p2 = P{ .character = Character{ .character = 'b' } };
-            const p3 = P{ .character = Character{ .character = 'c' } };
+            const p1 = P{ .character = Character(10){ .character = 'a' } };
+            const p2 = P{ .character = Character(10){ .character = 'b' } };
+            const p3 = P{ .character = Character(10){ .character = 'c' } };
             const patterns = [_]*const P{ &p1, &p2, &p3 };
             const concat = Concatenation(10).init(&patterns);
             const result = concat.match(input);
@@ -250,8 +268,8 @@ test "fuzz: Concatenation never panics" {
 test concatenation {
     const P = Pattern(10);
     const Character = @import("character.zig").Character;
-    const p1 = P{ .character = Character{ .character = 'h' } };
-    const p2 = P{ .character = Character{ .character = 'i' } };
+    const p1 = P{ .character = Character(10){ .character = 'h' } };
+    const p2 = P{ .character = Character(10){ .character = 'i' } };
     const patterns = [_]*const P{ &p1, &p2 };
     const concat = Concatenation(10).init(&patterns);
 

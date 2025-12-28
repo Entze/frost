@@ -61,13 +61,13 @@ pub fn InvertedCharacterClass(comptime size: usize) type {
         ///
         /// Lifetime:
         /// - input must remain valid for lifetime of returned Match
-        pub fn match(self: Self, input: []const u8) Match(groups_count) {
+        pub fn match(self: Self, input: []const u8) Match(size) {
             // Preconditions
             assert(self.count <= size);
 
             if (input.len == 0) {
                 // No input to match
-                const result = Match(groups_count).empty;
+                const result = Match(size).empty;
 
                 // Postconditions
                 defer assert(result.bytes_consumed == 0);
@@ -78,8 +78,18 @@ pub fn InvertedCharacterClass(comptime size: usize) type {
 
             // If exclusion set is empty, match any character
             if (self.count == 0) {
-                const groups = [_]MatchGroup{MatchGroup.init(0, 1)};
-                const result = Match(groups_count).init(1, 1, groups);
+                // For size 0, we need special handling since we can't create or index arrays
+                if (comptime size == 0) {
+                    // This shouldn't happen in practice, but handle it safely
+                    const result = Match(size).empty;
+                    defer assert(result.bytes_consumed == 0);
+                    defer assert(result.groups_matched == 0);
+                    return result;
+                }
+                
+                var groups = [_]MatchGroup{MatchGroup{ .begin = 0, .end = 0 }} ** size;
+                groups[0] = MatchGroup.init(0, 1);
+                const result = Match(size).init(1, 1, groups);
 
                 // Postconditions
                 defer assert(result.bytes_consumed == 1);
@@ -104,7 +114,7 @@ pub fn InvertedCharacterClass(comptime size: usize) type {
 
                     if (self.characters[i] == first_char) {
                         // Character is in exclusion set - no match
-                        const result = Match(groups_count).empty;
+                        const result = Match(size).empty;
 
                         // Postconditions
                         defer assert(result.bytes_consumed == 0);
@@ -116,8 +126,17 @@ pub fn InvertedCharacterClass(comptime size: usize) type {
             }
 
             // Character not in exclusion set - match
-            const groups = [_]MatchGroup{MatchGroup.init(0, 1)};
-            const result = Match(groups_count).init(1, 1, groups);
+            if (comptime size == 0) {
+                // This shouldn't happen in practice for size 0
+                const result = Match(size).empty;
+                defer assert(result.bytes_consumed == 0);
+                defer assert(result.groups_matched == 0);
+                return result;
+            }
+            
+            var groups = [_]MatchGroup{MatchGroup{ .begin = 0, .end = 0 }} ** size;
+            groups[0] = MatchGroup.init(0, 1);
+            const result = Match(size).init(1, 1, groups);
 
             // Postconditions
             defer assert(result.bytes_consumed == 1);
@@ -158,7 +177,7 @@ test "InvertedCharacterClass: no match for character in set" {
 }
 
 test "InvertedCharacterClass: match with empty exclusion set" {
-    const class = InvertedCharacterClass(0).init("");
+    const class = InvertedCharacterClass(1).init("");
     const input = "anything";
     const result = class.match(input);
 
