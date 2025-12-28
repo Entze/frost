@@ -65,7 +65,7 @@ run = '''
 # Extract lines 2+ from RELEASE.txt
 tail -n +2 RELEASE.txt > /tmp/release_notes.txt
 # Find the line number of the first ## heading in CHANGELOG.md
-line_num=$(grep -n "^## " CHANGELOG.md | head -n 1 | cut -d: -f1)
+line_num=$(grep -n "^## " CHANGELOG.md | head -n 1 | cut -d: -f1 || true)
 # Insert release notes after that line
 if [ -n "$line_num" ]; then
   head -n $line_num CHANGELOG.md > /tmp/changelog_head.txt
