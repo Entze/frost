@@ -22,7 +22,6 @@ pub fn Group(comptime max_size: usize) type {
 
         /// Number of groups this pattern produces (always 1: the full match).
         /// This constant is for compatibility with other patterns.
-        /// The actual number of groups produced during matching is 1 + pattern.groups_matched.
         pub const groups_count = 1;
 
         /// Matches the wrapped pattern from the input.
@@ -57,7 +56,8 @@ pub fn Group(comptime max_size: usize) type {
                 return result;
             }
 
-            // Pattern matched successfully - Group produces its own group 0 which wraps the subpattern
+            // Pattern matched successfully
+            // Group creates a single group representing the entire matched portion
             const groups = [_]MatchGroup{MatchGroup.init(0, pattern_match.bytes_consumed)};
             const result = Match(groups_count).init(
                 pattern_match.bytes_consumed,
