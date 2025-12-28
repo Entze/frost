@@ -2,7 +2,7 @@
 
 const std = @import("std");
 const assert = std.debug.assert;
-const Group = @import("group.zig").Group;
+const MatchGroup = @import("match_group.zig").MatchGroup;
 const Match = @import("match.zig").Match;
 
 /// Wildcard pattern that matches any single character (regex `.`).
@@ -43,7 +43,7 @@ pub const Wildcard = struct {
         }
 
         // Match first character
-        const groups = [_]Group{Group.init(0, 1)};
+        const groups = [_]MatchGroup{MatchGroup.init(0, 1)};
         const result = Match(groups_count).init(1, 1, groups);
 
         // Postconditions

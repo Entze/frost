@@ -2,7 +2,7 @@
 
 const std = @import("std");
 const assert = std.debug.assert;
-const Group = @import("group.zig").Group;
+const MatchGroup = @import("match_group.zig").MatchGroup;
 const Match = @import("match.zig").Match;
 
 // Note: Pattern is imported from parent, creating a circular dependency
@@ -115,7 +115,7 @@ pub fn Concatenation(comptime max_size: usize) type {
             }
 
             // All patterns matched successfully
-            const groups = [_]Group{Group.init(0, total_consumed)};
+            const groups = [_]MatchGroup{MatchGroup.init(0, total_consumed)};
             const result = Match(groups_count).init(total_consumed, 1, groups);
 
             // Postconditions

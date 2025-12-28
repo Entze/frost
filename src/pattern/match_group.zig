@@ -7,7 +7,7 @@ const assert = std.debug.assert;
 ///
 /// begin and end are byte indices into the original input string.
 /// The matched text is input[begin..end].
-pub const Group = struct {
+pub const MatchGroup = struct {
     /// Start index (inclusive) of the matched group in the input string.
     begin: usize,
     /// End index (exclusive) of the matched group in the input string.
@@ -15,7 +15,7 @@ pub const Group = struct {
 
     const Self = @This();
 
-    /// Creates a new Group from begin and end indices.
+    /// Creates a new MatchGroup from begin and end indices.
     pub fn init(begin: usize, end: usize) Self {
         assert(begin <= end);
         return Self{
@@ -30,8 +30,8 @@ pub const Group = struct {
     }
 };
 
-test "Group: basic functionality" {
-    const group = Group.init(5, 10);
+test "MatchGroup: basic functionality" {
+    const group = MatchGroup.init(5, 10);
     try std.testing.expectEqual(@as(usize, 5), group.begin);
     try std.testing.expectEqual(@as(usize, 10), group.end);
     try std.testing.expectEqual(@as(usize, 5), group.len());
