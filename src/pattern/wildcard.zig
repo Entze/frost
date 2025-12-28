@@ -6,7 +6,7 @@ const MatchGroup = @import("match_group.zig").MatchGroup;
 const Match = @import("match.zig").Match;
 
 /// Wildcard pattern that matches any single character (regex `.`).
-/// 
+///
 /// This is a function that returns a struct, allowing the Match return type
 /// to be sized appropriately for the containing Pattern.
 pub fn Wildcard(comptime max_groups: usize) type {

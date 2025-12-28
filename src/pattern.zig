@@ -238,34 +238,34 @@ test "Pattern: ((abc)xyz) example - nested group in concatenation" {
     // Group 1: (abc)xyz - outer group
     // Group 2: abc - inner group
     const P = Pattern(10);
-    
+
     // Build "abc" pattern
     const pa = P{ .character = Character(10){ .character = 'a' } };
     const pb = P{ .character = Character(10){ .character = 'b' } };
     const pc = P{ .character = Character(10){ .character = 'c' } };
     const abc_patterns = [_]*const P{ &pa, &pb, &pc };
     const abc_concat = P{ .concatenation = Concatenation(10).init(&abc_patterns) };
-    
+
     // Wrap "abc" in a group: (abc)
     const inner_group = P{ .group = Group(10){ .pattern = &abc_concat } };
-    
+
     // Build "xyz" pattern
     const px = P{ .character = Character(10){ .character = 'x' } };
     const py = P{ .character = Character(10){ .character = 'y' } };
     const pz = P{ .character = Character(10){ .character = 'z' } };
     const xyz_patterns = [_]*const P{ &px, &py, &pz };
     const xyz_concat = P{ .concatenation = Concatenation(10).init(&xyz_patterns) };
-    
+
     // Concatenate (abc) with xyz: (abc)xyz
     const concat_patterns = [_]*const P{ &inner_group, &xyz_concat };
     const full_concat = P{ .concatenation = Concatenation(10).init(&concat_patterns) };
-    
+
     // Wrap in outer group: ((abc)xyz)
     const outer_pattern = P{ .group = Group(10){ .pattern = &full_concat } };
-    
+
     const input = "abcxyz";
     const result = outer_pattern.match(input);
-    
+
     try std.testing.expectEqual(@as(usize, 6), result.bytes_consumed);
     try std.testing.expectEqual(@as(usize, 3), result.groups_matched);
     // Group 0: the whole match
@@ -283,7 +283,7 @@ test "Pattern: (abc)((x)yz) example - multiple groups in concatenation" {
     // Group 2: (x)yz - second outer group
     // Group 3: x - second inner group
     const P = Pattern(10);
-    
+
     // Build first group: (abc)
     const pa = P{ .character = Character(10){ .character = 'a' } };
     const pb = P{ .character = Character(10){ .character = 'b' } };
@@ -291,32 +291,32 @@ test "Pattern: (abc)((x)yz) example - multiple groups in concatenation" {
     const abc_patterns = [_]*const P{ &pa, &pb, &pc };
     const abc_concat = P{ .concatenation = Concatenation(10).init(&abc_patterns) };
     const group1 = P{ .group = Group(10){ .pattern = &abc_concat } };
-    
+
     // Build nested group: ((x)yz)
     // Inner: (x)
     const px = P{ .character = Character(10){ .character = 'x' } };
     const x_group = P{ .group = Group(10){ .pattern = &px } };
-    
+
     // yz
     const py = P{ .character = Character(10){ .character = 'y' } };
     const pz = P{ .character = Character(10){ .character = 'z' } };
     const yz_patterns = [_]*const P{ &py, &pz };
     const yz_concat = P{ .concatenation = Concatenation(10).init(&yz_patterns) };
-    
+
     // (x)yz
     const xyz_patterns = [_]*const P{ &x_group, &yz_concat };
     const xyz_concat = P{ .concatenation = Concatenation(10).init(&xyz_patterns) };
-    
+
     // ((x)yz)
     const group2 = P{ .group = Group(10){ .pattern = &xyz_concat } };
-    
+
     // Concatenate (abc) with ((x)yz)
     const full_patterns = [_]*const P{ &group1, &group2 };
     const full_pattern = P{ .concatenation = Concatenation(10).init(&full_patterns) };
-    
+
     const input = "abcxyz";
     const result = full_pattern.match(input);
-    
+
     try std.testing.expectEqual(@as(usize, 6), result.bytes_consumed);
     try std.testing.expectEqual(@as(usize, 4), result.groups_matched);
     // Group 0: the whole match

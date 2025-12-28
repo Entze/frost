@@ -59,13 +59,13 @@ pub fn Group(comptime max_size: usize) type {
             // Pattern matched successfully
             // Group produces: group 0 (full match), group 1 (this capture group), then all subgroups shifted
             var groups = [_]MatchGroup{MatchGroup{ .begin = 0, .end = 0 }} ** max_size;
-            
+
             // Group 0: the entire match (same as pattern's group 0)
             groups[0] = pattern_match.groups[0];
-            
+
             // Group 1: this capture group (same span as group 0)
             groups[1] = MatchGroup.init(0, pattern_match.bytes_consumed);
-            
+
             // Copy subpattern groups, shifting indices by 1
             // Loop has determinable upper bound: pattern_match.groups_matched
             var i: usize = 1;
@@ -73,7 +73,7 @@ pub fn Group(comptime max_size: usize) type {
                 // Loop invariant: i < pattern_match.groups_matched
                 assert(i < pattern_match.groups_matched);
                 assert(i + 1 < max_size);
-                
+
                 groups[i + 1] = pattern_match.groups[i];
             }
 

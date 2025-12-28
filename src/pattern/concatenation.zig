@@ -117,13 +117,10 @@ pub fn Concatenation(comptime max_size: usize) type {
                 while (j < pattern_match.groups_matched) : (j += 1) {
                     assert(j < pattern_match.groups_matched);
                     assert(total_groups < max_size);
-                    
+
                     // Adjust group positions relative to concatenation start
                     const group = pattern_match.groups[j];
-                    all_groups[total_groups] = MatchGroup.init(
-                        group.begin + total_consumed,
-                        group.end + total_consumed
-                    );
+                    all_groups[total_groups] = MatchGroup.init(group.begin + total_consumed, group.end + total_consumed);
                     total_groups += 1;
                 }
 

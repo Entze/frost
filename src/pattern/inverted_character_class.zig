@@ -86,7 +86,7 @@ pub fn InvertedCharacterClass(comptime size: usize) type {
                     defer assert(result.groups_matched == 0);
                     return result;
                 }
-                
+
                 var groups = [_]MatchGroup{MatchGroup{ .begin = 0, .end = 0 }} ** size;
                 groups[0] = MatchGroup.init(0, 1);
                 const result = Match(size).init(1, 1, groups);
@@ -133,7 +133,7 @@ pub fn InvertedCharacterClass(comptime size: usize) type {
                 defer assert(result.groups_matched == 0);
                 return result;
             }
-            
+
             var groups = [_]MatchGroup{MatchGroup{ .begin = 0, .end = 0 }} ** size;
             groups[0] = MatchGroup.init(0, 1);
             const result = Match(size).init(1, 1, groups);
