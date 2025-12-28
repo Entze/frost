@@ -10,54 +10,42 @@ const Match = @import("match.zig").Match;
 // and Concatenation contains pointers to Pattern
 const Pattern = @import("../pattern.zig").Pattern;
 
-/// Helper function to create Concatenation with inferred size.
-/// The max_size is extracted from the Pattern type rather than using patterns.len.
-/// This ensures type compatibility between the Concatenation and the Patterns.
-pub fn concatenation(comptime patterns: anytype) Concatenation(blk: {
-    // Extract Pattern's max_size from the type
-    // patterns has type *const [N]*const Pattern(M)
-    // We need to extract M
-    const array_info = @typeInfo(@TypeOf(patterns.*));
+/// Helper function to extract max_size from Pattern type at compile time.
+/// Used by concatenation() to ensure type compatibility.
+fn extractPatternMaxSize(comptime patterns_type: type) usize {
+    const array_info = @typeInfo(patterns_type);
     const pattern_ptr_type = array_info.array.child;
     const PatternType = @typeInfo(pattern_ptr_type).pointer.child;
     
-    // Extract max_size from Pattern(max_size) via Match type
+    // Pattern must be a union type
     const union_info = @typeInfo(PatternType).@"union";
+    assert(union_info.fields.len > 0); // Pattern union must have at least one variant
+    
+    // Extract max_size from Pattern(max_size) via Match type
+    // All Pattern variants have a match method that returns Match(max_size)
     const first_field_type = union_info.fields[0].type;
     const match_return_type = @typeInfo(@TypeOf(first_field_type.match)).@"fn".return_type.?;
     const match_struct_info = @typeInfo(match_return_type).@"struct";
     
-    // Find groups field and extract array length (which is max_size)
-    var max_size: usize = 10;
-    for (match_struct_info.fields) |field| {
-        if (std.mem.eql(u8, field.name, "groups")) {
+    // Find groups field in Match struct and extract array length (which is max_size)
+    inline for (match_struct_info.fields) |field| {
+        if (comptime std.mem.eql(u8, field.name, "groups")) {
             const field_type_info = @typeInfo(field.type);
             if (field_type_info == .array) {
-                max_size = field_type_info.array.len;
+                return field_type_info.array.len;
             }
         }
     }
-    break :blk max_size;
-}) {
-    return Concatenation(blk: {
-        const array_info = @typeInfo(@TypeOf(patterns.*));
-        const pattern_ptr_type = array_info.array.child;
-        const PatternType = @typeInfo(pattern_ptr_type).pointer.child;
-        const union_info = @typeInfo(PatternType).@"union";
-        const first_field_type = union_info.fields[0].type;
-        const match_return_type = @typeInfo(@TypeOf(first_field_type.match)).@"fn".return_type.?;
-        const match_struct_info = @typeInfo(match_return_type).@"struct";
-        var max_size: usize = 10;
-        for (match_struct_info.fields) |field| {
-            if (std.mem.eql(u8, field.name, "groups")) {
-                const field_type_info = @typeInfo(field.type);
-                if (field_type_info == .array) {
-                    max_size = field_type_info.array.len;
-                }
-            }
-        }
-        break :blk max_size;
-    }).init(patterns);
+    
+    @compileError("Unable to extract max_size from Pattern type: groups field not found");
+}
+
+/// Helper function to create Concatenation with inferred size.
+/// The max_size is extracted from the Pattern type to ensure type compatibility.
+/// This corrects the previous implementation which used patterns.len.
+pub fn concatenation(comptime patterns: anytype) Concatenation(extractPatternMaxSize(@TypeOf(patterns.*))) {
+    const max_size = comptime extractPatternMaxSize(@TypeOf(patterns.*));
+    return Concatenation(max_size).init(patterns);
 }
 
 test "Concatenation.init: should match sequential patterns" {
