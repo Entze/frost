@@ -50,12 +50,6 @@ hk fix ${usage_paths}
 {% endif %}
 '''
 
-[tasks.bump]
-usage = '''
-arg "<type>"
-'''
-run = "bump-my-version bump ${usage_type}"
-
 [tasks.changelog-version-new]
 run = '''
 version=$(bump-my-version show current_version)
