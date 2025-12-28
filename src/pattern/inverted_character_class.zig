@@ -35,7 +35,10 @@ pub fn InvertedCharacterClass(comptime size: usize) type {
         /// Creates an InvertedCharacterClass from a compile-time character slice.
         /// The storage size must be >= slice length.
         ///
-        /// Note: It's easier to use the module-level `invertedCharacterClass()` function
+        /// Note: Unlike CharacterClass, empty exclusion sets are allowed.
+        /// An empty exclusion set matches any character (nothing is excluded).
+        ///
+        /// It's easier to use the module-level `invertedCharacterClass()` function
         /// which infers the size automatically.
         pub fn init(comptime characters: []const u8) Self {
             assert(characters.len <= size);
@@ -96,6 +99,8 @@ pub fn InvertedCharacterClass(comptime size: usize) type {
             // Check if first character is NOT in the exclusion set
             // Loop has determinable upper bound: self.count (runtime validated <= size)
             // We only reach here if count > 0
+            // Note: comptime check required because Zig won't allow indexing into
+            // zero-sized arrays even if runtime logic prevents it
             if (comptime size > 0) {
                 var i: usize = 0;
                 while (i < self.count) : (i += 1) {
