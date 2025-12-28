@@ -13,7 +13,7 @@ pub fn invertedCharacterClass(comptime characters: []const u8) InvertedCharacter
     return InvertedCharacterClass(characters.len).init(characters);
 }
 
-test "invertedCharacterClass: doctest - expected vs actual style" {
+test "invertedCharacterClass: should match first non-vowel in input" {
     // Expected: Match first non-vowel 'b' in "banana"
     const expected_bytes: usize = 1;
     const expected_groups: usize = 1;
@@ -29,6 +29,26 @@ test "invertedCharacterClass: doctest - expected vs actual style" {
     try std.testing.expectEqual(expected_bytes, result.bytes_consumed);
     try std.testing.expectEqual(expected_groups, result.groups_matched);
     try std.testing.expectEqualStrings(expected_match, actual_match);
+}
+
+test "invertedCharacterClass: should equal manual init with same exclusion set" {
+    // Create using convenience constructor
+    const icc_convenience = invertedCharacterClass("aeiou");
+
+    // Create manually using init
+    const icc_manual = InvertedCharacterClass(5).init("aeiou");
+
+    // Verify they are equivalent
+    try std.testing.expectEqual(icc_manual.count, icc_convenience.count);
+    try std.testing.expectEqualSlices(u8, icc_manual.characters[0..icc_manual.count], icc_convenience.characters[0..icc_convenience.count]);
+
+    // Verify they match the same input
+    const input = "banana";
+    const result_convenience = icc_convenience.match(input);
+    const result_manual = icc_manual.match(input);
+
+    try std.testing.expectEqual(result_manual.bytes_consumed, result_convenience.bytes_consumed);
+    try std.testing.expectEqual(result_manual.groups_matched, result_convenience.groups_matched);
 }
 
 /// InvertedCharacterClass pattern that matches any character not in a set (regex `[^ ]`).
@@ -63,7 +83,7 @@ pub fn InvertedCharacterClass(comptime size: usize) type {
             return result;
         }
 
-        test "init: doctest - expected vs actual style" {
+        test "init: should create InvertedCharacterClass and exclude specified characters" {
             // Expected: Create InvertedCharacterClass excluding vowels that matches 'd' in "dog"
             const expected_count: usize = 5;
             const expected_bytes: usize = 1;

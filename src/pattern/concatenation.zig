@@ -20,7 +20,7 @@ pub fn concatenation(comptime patterns: anytype) Concatenation(patterns.len) {
     return Concatenation(patterns.len).init(patterns);
 }
 
-test "concatenation: doctest - expected vs actual style" {
+test "Concatenation.init: should match sequential patterns" {
     // Expected: Match "hi" from "hi there"
     const expected_bytes: usize = 2;
     const expected_groups: usize = 1;
@@ -94,7 +94,7 @@ pub fn Concatenation(comptime max_size: usize) type {
             try std.testing.expectEqualStrings("ab", input[result.groups[0].begin..result.groups[0].end]);
         }
 
-        test "init: doctest - expected vs actual style" {
+        test "init: should create Concatenation and match pattern sequence" {
             // Expected: Create Concatenation matching "ab" in "abc"
             const expected_count: usize = 2;
             const expected_bytes: usize = 2;
