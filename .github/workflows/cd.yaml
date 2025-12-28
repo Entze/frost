@@ -16,10 +16,16 @@ jobs:
       should-release: ${{ steps.check.outputs.exists }}
     steps:
       - uses: actions/checkout@v6
+      
+      - uses: jdx/mise-action@v3
+        with:
+          install: true
+          cache: true
+          experimental: true
 
       - name: Check if RELEASE.txt exists
         id: check
-        run: ./scripts/check-release-file.sh
+        run: mise run cd:check-release-file
 
   release:
     name: Release
@@ -41,11 +47,13 @@ jobs:
           experimental: true
 
       - name: Run release task
-        run: mise run release
+        run: mise run release:do-release
 
       - name: Get new version
         id: version
-        run: ./scripts/get-version.sh
+        run: |
+          version=$(bump-my-version show current_version)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Commit and push changes
         uses: EndBug/add-and-commit@v9

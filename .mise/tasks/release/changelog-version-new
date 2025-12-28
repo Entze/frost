@@ -6,6 +6,10 @@ version=$(bump-my-version show current_version)
 date=$(date +%Y-%m-%d)
 header="## $version ($date)"
 
+# Create temporary file
+temp_file=$(mktemp)
+trap 'rm --force "$temp_file"' EXIT
+
 # Insert new version header before the first ## heading (or at end if none exist)
 # This keeps the abstract before all version entries
 awk -v header="$header" '
@@ -23,5 +27,5 @@ awk -v header="$header" '
       print ""
     }
   }
-' CHANGELOG.md > CHANGELOG.md.tmp
-mv CHANGELOG.md.tmp CHANGELOG.md
+' CHANGELOG.md > "$temp_file"
+mv "$temp_file" CHANGELOG.md

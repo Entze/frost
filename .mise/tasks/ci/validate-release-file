@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+#MISE description="Validate RELEASE.txt format and content"
+set -euo pipefail
+
+if [ -f RELEASE.txt ]; then
+  # Check if file is empty
+  if [ ! -s RELEASE.txt ]; then
+    echo "ERROR: RELEASE.txt exists but is empty"
+    exit 1
+  fi
+  
+  # Check if first line is MAJOR, MINOR, or PATCH
+  first_line=$(head --lines=1 RELEASE.txt)
+  if [[ "$first_line" != "MAJOR" && "$first_line" != "MINOR" && "$first_line" != "PATCH" ]]; then
+    echo "ERROR: First line of RELEASE.txt must be exactly one of: MAJOR, MINOR, PATCH"
+    echo "Found: $first_line"
+    exit 1
+  fi
+  
+  echo "RELEASE.txt validation passed"
+else
+  echo "RELEASE.txt not found - skipping validation"
+fi

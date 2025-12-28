@@ -2,4 +2,4 @@
 #MISE description="Delete RELEASE.txt file"
 set -euo pipefail
 
-rm -f RELEASE.txt
+rm --force RELEASE.txt

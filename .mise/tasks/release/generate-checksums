@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
+#MISE description="Generate SHA256 checksums for all release artifacts"
 set -euo pipefail
 
 cd release-artifacts
 
 # Check if directory has files
-if [ -n "$(ls -A)" ]; then
+if [ -n "$(ls --almost-all)" ]; then
   sha256sum -- * > CHECKSUMS.txt
   cat CHECKSUMS.txt
 else

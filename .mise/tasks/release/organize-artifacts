@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+#MISE description="Organize downloaded artifacts into release-artifacts directory"
+set -euo pipefail
+
+mkdir --parents release-artifacts
+find artifacts -type f -exec cp --verbose {} release-artifacts/ \;
+ls --all --long --human-readable release-artifacts/

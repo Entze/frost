@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+#MISE description="Copy release notes from RELEASE.txt to CHANGELOG.md"
+set -euo pipefail
+
+# Create temporary files
+release_notes_file=$(mktemp)
+changelog_head_file=$(mktemp)
+trap 'rm --force "$release_notes_file" "$changelog_head_file"' EXIT
+
+# Extract lines 2+ from RELEASE.txt
+tail --lines=+2 RELEASE.txt > "$release_notes_file"
+
+# Find the line number of the first ## heading in CHANGELOG.md
+line_num=$(grep --line-number "^## " CHANGELOG.md | head --lines=1 | cut --delimiter=: --fields=1 || true)
+
+# Insert release notes after that line
+if [ -n "$line_num" ]; then
+  head --lines="$line_num" CHANGELOG.md > "$changelog_head_file"
+  echo "" >> "$changelog_head_file"
+  cat "$release_notes_file" >> "$changelog_head_file"
+  tail --lines=+"$((line_num + 1))" CHANGELOG.md >> "$changelog_head_file"
+  mv "$changelog_head_file" CHANGELOG.md
+fi

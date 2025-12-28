@@ -3,14 +3,14 @@
 set -euo pipefail
 
 # Read the bump type from RELEASE.txt and convert to lowercase
-bump_type=$(head -n1 RELEASE.txt | tr '[:upper:]' '[:lower:]')
+bump_type=$(head --lines=1 RELEASE.txt | tr '[:upper:]' '[:lower:]')
 
 # Run bump
 bump-my-version bump "$bump_type"
 
 # Run changelog tasks
-mise run changelog-version-new
-mise run changelog-release-copy
+mise run release:changelog-version-new
+mise run release:changelog-release-copy
 
 # Run release-clear
-mise run release-clear
+mise run release:release-clear
