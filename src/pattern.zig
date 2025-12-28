@@ -22,6 +22,7 @@ pub const InvertedCharacterClass = @import("pattern/inverted_character_class.zig
 pub const invertedCharacterClass = @import("pattern/inverted_character_class.zig").invertedCharacterClass;
 pub const Concatenation = @import("pattern/concatenation.zig").Concatenation;
 pub const concatenation = @import("pattern/concatenation.zig").concatenation;
+pub const Group = @import("pattern/group.zig").Group;
 
 /// Pattern tagged union containing all pattern variants.
 ///
@@ -39,6 +40,7 @@ pub fn Pattern(comptime max_size: usize) type {
         character_class: CharacterClass(max_size),
         inverted_character_class: InvertedCharacterClass(max_size),
         concatenation: Concatenation(max_size),
+        group: Group(max_size),
 
         const Self = @This();
 
@@ -65,6 +67,7 @@ pub fn Pattern(comptime max_size: usize) type {
                 .character_class => |cc| cc.match(input),
                 .inverted_character_class => |icc| icc.match(input),
                 .concatenation => |cat| cat.match(input),
+                .group => |g| g.match(input),
             };
         }
     };
@@ -175,6 +178,38 @@ test "Pattern: inverted character class variant with helper" {
     try std.testing.expectEqual(@as(usize, 0), result2.bytes_consumed);
 }
 
+test "Pattern: group variant wrapping character" {
+    const P = Pattern(10);
+    const char = P{ .character = Character{ .character = 'a' } };
+    const pattern = P{ .group = Group(10){ .pattern = &char } };
+
+    const input1 = "abc";
+    const result1 = pattern.match(input1);
+    try std.testing.expectEqual(@as(usize, 1), result1.bytes_consumed);
+    try std.testing.expectEqual(@as(usize, 1), result1.groups_matched);
+    try std.testing.expectEqualStrings("a", input1[result1.groups[0].begin..result1.groups[0].end]);
+
+    const input2 = "bcd";
+    const result2 = pattern.match(input2);
+    try std.testing.expectEqual(@as(usize, 0), result2.bytes_consumed);
+}
+
+test "Pattern: group variant wrapping concatenation" {
+    const P = Pattern(10);
+    const p1 = P{ .character = Character{ .character = 'h' } };
+    const p2 = P{ .character = Character{ .character = 'i' } };
+    const patterns = [_]*const P{ &p1, &p2 };
+    const concat = Concatenation(10).init(&patterns);
+    const concat_pattern = P{ .concatenation = concat };
+    const pattern = P{ .group = Group(10){ .pattern = &concat_pattern } };
+
+    const input = "hi there";
+    const result = pattern.match(input);
+    try std.testing.expectEqual(@as(usize, 2), result.bytes_consumed);
+    try std.testing.expectEqual(@as(usize, 1), result.groups_matched);
+    try std.testing.expectEqualStrings("hi", input[result.groups[0].begin..result.groups[0].end]);
+}
+
 test "fuzz: Pattern union never panics" {
     const Context = struct {
         fn testOne(context: @This(), input: []const u8) anyerror!void {
@@ -210,6 +245,12 @@ test "fuzz: Pattern union never panics" {
             const pattern5 = P{ .concatenation = concat };
             const result5 = pattern5.match(input);
             try std.testing.expect(result5.bytes_consumed <= input.len);
+
+            // Test group variant
+            const char_pattern = P{ .character = Character{ .character = 'x' } };
+            const pattern6 = P{ .group = Group(10){ .pattern = &char_pattern } };
+            const result6 = pattern6.match(input);
+            try std.testing.expect(result6.bytes_consumed <= input.len);
         }
     };
     try std.testing.fuzz(Context{}, Context.testOne, .{});
