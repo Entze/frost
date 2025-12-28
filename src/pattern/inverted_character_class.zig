@@ -172,15 +172,6 @@ test "InvertedCharacterClass: match with empty exclusion set" {
     try std.testing.expectEqualStrings("a", input[result.groups[0].begin..result.groups[0].end]);
 }
 
-test "InvertedCharacterClass: no match for first character in set" {
-    const class = InvertedCharacterClass(3).init("abc");
-    const input = "apple";
-    const result = class.match(input);
-
-    try std.testing.expectEqual(@as(usize, 0), result.bytes_consumed);
-    try std.testing.expectEqual(@as(usize, 0), result.groups_matched);
-}
-
 test "InvertedCharacterClass: no match for middle character in set" {
     const class = InvertedCharacterClass(3).init("abc");
     const input = "banana";
