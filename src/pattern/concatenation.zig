@@ -16,17 +16,17 @@ fn extractPatternMaxSize(comptime patterns_type: type) usize {
     const array_info = @typeInfo(patterns_type);
     const pattern_ptr_type = array_info.array.child;
     const PatternType = @typeInfo(pattern_ptr_type).pointer.child;
-    
+
     // Pattern must be a union type
     const union_info = @typeInfo(PatternType).@"union";
     assert(union_info.fields.len > 0); // Pattern union must have at least one variant
-    
+
     // Extract max_size from Pattern(max_size) via Match type
     // All Pattern variants have a match method that returns Match(max_size)
     const first_field_type = union_info.fields[0].type;
     const match_return_type = @typeInfo(@TypeOf(first_field_type.match)).@"fn".return_type.?;
     const match_struct_info = @typeInfo(match_return_type).@"struct";
-    
+
     // Find groups field in Match struct and extract array length (which is max_size)
     inline for (match_struct_info.fields) |field| {
         if (comptime std.mem.eql(u8, field.name, "groups")) {
@@ -36,7 +36,7 @@ fn extractPatternMaxSize(comptime patterns_type: type) usize {
             }
         }
     }
-    
+
     @compileError("Unable to extract max_size from Pattern type: groups field not found");
 }
 
@@ -365,20 +365,20 @@ test "concatenation: abc - convenience vs init produces identical pattern" {
     const pa = P{ .character = Character(10){ .character = 'a' } };
     const pb = P{ .character = Character(10){ .character = 'b' } };
     const pc = P{ .character = Character(10){ .character = 'c' } };
-    
+
     // Create using init
     const patterns_init = [_]*const P{ &pa, &pb, &pc };
     const concat_init = Concatenation(10).init(&patterns_init);
-    
+
     // Create using convenience constructor
     const patterns_conv = [_]*const P{ &pa, &pb, &pc };
     const concat_conv = concatenation(&patterns_conv);
-    
+
     // Test matching with both
     const input = "abc";
     const result_init = concat_init.match(input);
     const result_conv = concat_conv.match(input);
-    
+
     // Both should produce identical results
     try std.testing.expectEqual(result_init.bytes_consumed, result_conv.bytes_consumed);
     try std.testing.expectEqual(result_init.groups_matched, result_conv.groups_matched);
@@ -395,16 +395,16 @@ test "concatenation: (abc) - wrapping concatenation in group" {
     const pa = P{ .character = Character(10){ .character = 'a' } };
     const pb = P{ .character = Character(10){ .character = 'b' } };
     const pc = P{ .character = Character(10){ .character = 'c' } };
-    
+
     // Create inner concatenation "abc"
     const abc_patterns = [_]*const P{ &pa, &pb, &pc };
     const abc_concat = P{ .concatenation = Concatenation(10).init(&abc_patterns) };
     const group = Group(10){ .pattern = &abc_concat };
-    
+
     // Test matching
     const input = "abc";
     const result = group.match(input);
-    
+
     // Verify expected results
     try std.testing.expectEqual(@as(usize, 3), result.bytes_consumed);
     try std.testing.expectEqual(@as(usize, 2), result.groups_matched);
@@ -416,35 +416,35 @@ test "concatenation: (abc)(xyz) - two groups in concatenation" {
     const P = Pattern(10);
     const Character = @import("character.zig").Character;
     const Group = @import("group.zig").Group;
-    
+
     // Build "abc" concatenation
     const pa = P{ .character = Character(10){ .character = 'a' } };
     const pb = P{ .character = Character(10){ .character = 'b' } };
     const pc = P{ .character = Character(10){ .character = 'c' } };
     const abc_patterns = [_]*const P{ &pa, &pb, &pc };
     const abc_concat = P{ .concatenation = Concatenation(10).init(&abc_patterns) };
-    
+
     // Wrap in group: (abc)
     const group1 = P{ .group = Group(10){ .pattern = &abc_concat } };
-    
+
     // Build "xyz" concatenation
     const px = P{ .character = Character(10){ .character = 'x' } };
     const py = P{ .character = Character(10){ .character = 'y' } };
     const pz = P{ .character = Character(10){ .character = 'z' } };
     const xyz_patterns = [_]*const P{ &px, &py, &pz };
     const xyz_concat = P{ .concatenation = Concatenation(10).init(&xyz_patterns) };
-    
+
     // Wrap in group: (xyz)
     const group2 = P{ .group = Group(10){ .pattern = &xyz_concat } };
-    
+
     // Create outer concatenation
     const outer_patterns = [_]*const P{ &group1, &group2 };
     const concat = Concatenation(10).init(&outer_patterns);
-    
+
     // Test matching
     const input = "abcxyz";
     const result = concat.match(input);
-    
+
     // Verify expected results
     try std.testing.expectEqual(@as(usize, 6), result.bytes_consumed);
     try std.testing.expectEqual(@as(usize, 3), result.groups_matched);
@@ -456,30 +456,30 @@ test "concatenation: (a(b))c - nested groups in concatenation" {
     const P = Pattern(10);
     const Character = @import("character.zig").Character;
     const Group = @import("group.zig").Group;
-    
+
     // Build innermost: "b"
     const pb = P{ .character = Character(10){ .character = 'b' } };
-    
+
     // Wrap in inner group: (b)
     const inner_group = P{ .group = Group(10){ .pattern = &pb } };
-    
+
     // Build "a" and "(b)" concatenation
     const pa = P{ .character = Character(10){ .character = 'a' } };
     const ab_patterns = [_]*const P{ &pa, &inner_group };
     const ab_concat = P{ .concatenation = Concatenation(10).init(&ab_patterns) };
-    
+
     // Wrap in outer group: (a(b))
     const outer_group = P{ .group = Group(10){ .pattern = &ab_concat } };
-    
+
     // Build final concatenation with "c"
     const pc = P{ .character = Character(10){ .character = 'c' } };
     const final_patterns = [_]*const P{ &outer_group, &pc };
     const concat = Concatenation(10).init(&final_patterns);
-    
+
     // Test matching
     const input = "abc";
     const result = concat.match(input);
-    
+
     // Verify expected results
     try std.testing.expectEqual(@as(usize, 3), result.bytes_consumed);
     try std.testing.expectEqual(@as(usize, 3), result.groups_matched);
