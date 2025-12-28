@@ -1,9 +1,10 @@
 //! Pattern matching module for building lexer-parser pipelines.
 //!
-//! This module provides a Pattern type as a tagged union with four basic variants:
+//! This module provides a Pattern type as a tagged union with five basic variants:
 //! - Wildcard: Matches any single character (regex `.`)
 //! - Character: Matches a specific single character
 //! - CharacterClass: Matches characters in a set (regex `[ ]`)
+//! - InvertedCharacterClass: Matches characters not in a set (regex `[^ ]`)
 //! - Concatenation: Matches sequential patterns
 //!
 //! All patterns are defined at compile time, allowing variants to use arrays for storage.
@@ -17,6 +18,8 @@ pub const Wildcard = @import("pattern/wildcard.zig").Wildcard;
 pub const Character = @import("pattern/character.zig").Character;
 pub const CharacterClass = @import("pattern/character_class.zig").CharacterClass;
 pub const characterClass = @import("pattern/character_class.zig").characterClass;
+pub const InvertedCharacterClass = @import("pattern/inverted_character_class.zig").InvertedCharacterClass;
+pub const invertedCharacterClass = @import("pattern/inverted_character_class.zig").invertedCharacterClass;
 pub const Concatenation = @import("pattern/concatenation.zig").Concatenation;
 pub const concatenation = @import("pattern/concatenation.zig").concatenation;
 
@@ -27,12 +30,14 @@ pub const concatenation = @import("pattern/concatenation.zig").concatenation;
 ///
 /// The size parameter determines:
 /// - Maximum size of CharacterClass character sets
+/// - Maximum size of InvertedCharacterClass exclusion sets
 /// - Maximum number of patterns in Concatenation sequences
 pub fn Pattern(comptime max_size: usize) type {
     return union(enum) {
         wildcard: Wildcard,
         character: Character,
         character_class: CharacterClass(max_size),
+        inverted_character_class: InvertedCharacterClass(max_size),
         concatenation: Concatenation(max_size),
 
         const Self = @This();
@@ -58,6 +63,7 @@ pub fn Pattern(comptime max_size: usize) type {
                 .wildcard => |w| w.match(input),
                 .character => |c| c.match(input),
                 .character_class => |cc| cc.match(input),
+                .inverted_character_class => |icc| icc.match(input),
                 .concatenation => |cat| cat.match(input),
             };
         }
@@ -140,6 +146,35 @@ test "Pattern: concatenation variant" {
     try std.testing.expectEqualStrings("hi", input[result.groups[0].begin..result.groups[0].end]);
 }
 
+test "Pattern: inverted character class variant matching" {
+    const P = Pattern(10);
+    const icc = InvertedCharacterClass(10).init("aeiou");
+    const pattern = P{ .inverted_character_class = icc };
+
+    const input1 = "banana";
+    const result1 = pattern.match(input1);
+    try std.testing.expectEqual(@as(usize, 1), result1.bytes_consumed);
+    try std.testing.expectEqualStrings("b", input1[result1.groups[0].begin..result1.groups[0].end]);
+
+    const input2 = "apple";
+    const result2 = pattern.match(input2);
+    try std.testing.expectEqual(@as(usize, 0), result2.bytes_consumed);
+}
+
+test "Pattern: inverted character class variant with helper" {
+    const P = Pattern(10);
+    const pattern = P{ .inverted_character_class = invertedCharacterClass("0123456789") };
+
+    const input1 = "abc";
+    const result1 = pattern.match(input1);
+    try std.testing.expectEqual(@as(usize, 1), result1.bytes_consumed);
+    try std.testing.expectEqualStrings("a", input1[result1.groups[0].begin..result1.groups[0].end]);
+
+    const input2 = "123";
+    const result2 = pattern.match(input2);
+    try std.testing.expectEqual(@as(usize, 0), result2.bytes_consumed);
+}
+
 test "fuzz: Pattern union never panics" {
     const Context = struct {
         fn testOne(context: @This(), input: []const u8) anyerror!void {
@@ -161,14 +196,20 @@ test "fuzz: Pattern union never panics" {
             const result3 = pattern3.match(input);
             try std.testing.expect(result3.bytes_consumed <= input.len);
 
+            // Test inverted character class variant
+            const icc = InvertedCharacterClass(10).init("abc");
+            const pattern4 = P{ .inverted_character_class = icc };
+            const result4 = pattern4.match(input);
+            try std.testing.expect(result4.bytes_consumed <= input.len);
+
             // Test concatenation variant
             const p1 = P{ .character = Character{ .character = 'a' } };
             const p2 = P{ .character = Character{ .character = 'b' } };
             const patterns = [_]*const P{ &p1, &p2 };
             const concat = Concatenation(10).init(&patterns);
-            const pattern4 = P{ .concatenation = concat };
-            const result4 = pattern4.match(input);
-            try std.testing.expect(result4.bytes_consumed <= input.len);
+            const pattern5 = P{ .concatenation = concat };
+            const result5 = pattern5.match(input);
+            try std.testing.expect(result5.bytes_consumed <= input.len);
         }
     };
     try std.testing.fuzz(Context{}, Context.testOne, .{});
