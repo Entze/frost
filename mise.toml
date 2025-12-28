@@ -92,24 +92,10 @@ run = '''
 bump_type=$(head -n1 RELEASE.txt | tr '[:upper:]' '[:lower:]')
 # Run bump
 bump-my-version bump "$bump_type"
-# Run changelog-version-new
-version=$(bump-my-version show current_version)
-date=$(date +%Y-%m-%d)
-header="## $version ($date)"
-awk -v header="$header" '/^# Changelog/ {print; print ""; print header; next} 1' CHANGELOG.md > CHANGELOG.md.tmp
-mv CHANGELOG.md.tmp CHANGELOG.md
-# Run changelog-release-copy
-tail -n +2 RELEASE.txt > /tmp/release_notes.txt
-line_num=$(grep -n "^## " CHANGELOG.md | head -n 1 | cut -d: -f1)
-if [ -n "$line_num" ]; then
-  head -n $line_num CHANGELOG.md > /tmp/changelog_head.txt
-  echo "" >> /tmp/changelog_head.txt
-  cat /tmp/release_notes.txt >> /tmp/changelog_head.txt
-  tail -n +$((line_num + 1)) CHANGELOG.md >> /tmp/changelog_head.txt
-  mv /tmp/changelog_head.txt CHANGELOG.md
-fi
-rm -f /tmp/release_notes.txt
+# Run changelog tasks
+mise run changelog-version-new
+mise run changelog-release-copy
 # Run release-clear
-rm -f RELEASE.txt
+mise run release-clear
 '''
 
