@@ -148,6 +148,32 @@ test "Group: groups_count constant" {
     try std.testing.expectEqual(@as(usize, 1), G.groups_count);
 }
 
+test "Group: nested groups" {
+    const P = Pattern(10);
+    const Character = @import("character.zig").Character;
+    const char = P{ .character = Character{ .character = 'a' } };
+    const inner_group = P{ .group = Group(10){ .pattern = &char } };
+    const outer_group = Group(10){ .pattern = &inner_group };
+    const input = "abc";
+    const result = outer_group.match(input);
+
+    try std.testing.expectEqual(@as(usize, 1), result.bytes_consumed);
+    try std.testing.expectEqual(@as(usize, 1), result.groups_matched);
+    try std.testing.expectEqualStrings("a", input[result.groups[0].begin..result.groups[0].end]);
+}
+
+test "Group: wrapping empty match" {
+    const P = Pattern(10);
+    const Character = @import("character.zig").Character;
+    const char = P{ .character = Character{ .character = 'z' } };
+    const group = Group(10){ .pattern = &char };
+    const input = "abc";
+    const result = group.match(input);
+
+    try std.testing.expectEqual(@as(usize, 0), result.bytes_consumed);
+    try std.testing.expectEqual(@as(usize, 0), result.groups_matched);
+}
+
 test "fuzz: Group never panics" {
     const Context = struct {
         fn testOne(context: @This(), input: []const u8) anyerror!void {

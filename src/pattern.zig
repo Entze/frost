@@ -1,11 +1,12 @@
 //! Pattern matching module for building lexer-parser pipelines.
 //!
-//! This module provides a Pattern type as a tagged union with five basic variants:
+//! This module provides a Pattern type as a tagged union with six variants:
 //! - Wildcard: Matches any single character (regex `.`)
 //! - Character: Matches a specific single character
 //! - CharacterClass: Matches characters in a set (regex `[ ]`)
 //! - InvertedCharacterClass: Matches characters not in a set (regex `[^ ]`)
 //! - Concatenation: Matches sequential patterns
+//! - Group: Matches a subpattern and counts as a capture group (regex `(PATTERN)`)
 //!
 //! All patterns are defined at compile time, allowing variants to use arrays for storage.
 
@@ -208,6 +209,23 @@ test "Pattern: group variant wrapping concatenation" {
     try std.testing.expectEqual(@as(usize, 2), result.bytes_consumed);
     try std.testing.expectEqual(@as(usize, 1), result.groups_matched);
     try std.testing.expectEqualStrings("hi", input[result.groups[0].begin..result.groups[0].end]);
+}
+
+test "Pattern: nested group variant" {
+    const P = Pattern(10);
+    const char = P{ .character = Character{ .character = 'x' } };
+    const inner_group = P{ .group = Group(10){ .pattern = &char } };
+    const outer_pattern = P{ .group = Group(10){ .pattern = &inner_group } };
+
+    const input1 = "xyz";
+    const result1 = outer_pattern.match(input1);
+    try std.testing.expectEqual(@as(usize, 1), result1.bytes_consumed);
+    try std.testing.expectEqual(@as(usize, 1), result1.groups_matched);
+    try std.testing.expectEqualStrings("x", input1[result1.groups[0].begin..result1.groups[0].end]);
+
+    const input2 = "abc";
+    const result2 = outer_pattern.match(input2);
+    try std.testing.expectEqual(@as(usize, 0), result2.bytes_consumed);
 }
 
 test "fuzz: Pattern union never panics" {
