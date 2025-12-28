@@ -1,0 +1,102 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            artifact_name: frost-linux
+            artifact_path: zig-out/bin/frost
+          - os: macos-latest
+            artifact_name: frost-macos
+            artifact_path: zig-out/bin/frost
+          - os: windows-latest
+            artifact_name: frost-windows.exe
+            artifact_path: zig-out/bin/frost.exe
+    steps:
+      - uses: actions/checkout@v6
+      
+      - uses: jdx/mise-action@v3
+        with:
+          install: true
+          cache: true
+          experimental: true
+      
+      - name: Build
+        run: mise run build
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_path }}
+          if-no-files-found: error
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+      
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      
+      - name: Organize artifacts
+        run: |
+          mkdir -p release-artifacts
+          find artifacts -type f -exec cp {} release-artifacts/ \;
+          ls -la release-artifacts/
+      
+      - name: Generate checksums
+        run: |
+          cd release-artifacts
+          sha256sum * > CHECKSUMS.txt
+          cat CHECKSUMS.txt
+      
+      - name: Extract changelog for this version
+        id: changelog
+        run: |
+          version="${GITHUB_REF#refs/tags/v}"
+          echo "Extracting changelog for version $version"
+          
+          # Extract the section for this version from CHANGELOG.md
+          awk -v version="$version" '
+            /^## / {
+              if (found) exit;
+              if ($0 ~ version) {
+                found=1;
+                next;
+              }
+            }
+            found && /^## / { exit }
+            found { print }
+          ' CHANGELOG.md > release_notes.txt
+          
+          if [ ! -s release_notes.txt ]; then
+            echo "Release v$version" > release_notes.txt
+          fi
+          
+          cat release_notes.txt
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: release_notes.txt
+          files: release-artifacts/*
+          fail_on_unmatched_files: true

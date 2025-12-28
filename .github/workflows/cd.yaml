@@ -1,0 +1,66 @@
+name: CD
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Only run if RELEASE.txt exists
+    if: contains(github.event.head_commit.modified, 'RELEASE.txt') || contains(github.event.head_commit.added, 'RELEASE.txt')
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - uses: jdx/mise-action@v3
+        with:
+          install: true
+          cache: true
+          experimental: true
+      
+      - name: Check if RELEASE.txt exists
+        id: check-release
+        run: |
+          if [ -f RELEASE.txt ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "RELEASE.txt not found, skipping release"
+            exit 0
+          fi
+      
+      - name: Configure git
+        if: steps.check-release.outputs.exists == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      
+      - name: Run release task
+        if: steps.check-release.outputs.exists == 'true'
+        run: mise run release
+      
+      - name: Get new version
+        if: steps.check-release.outputs.exists == 'true'
+        id: version
+        run: |
+          version=$(bump-my-version show current_version)
+          echo "version=$version" >> $GITHUB_OUTPUT
+      
+      - name: Commit changes
+        if: steps.check-release.outputs.exists == 'true'
+        run: |
+          git add -A
+          git commit -m "Bump version to ${{ steps.version.outputs.version }}"
+          git push
+      
+      - name: Create and push tag
+        if: steps.check-release.outputs.exists == 'true'
+        run: |
+          git tag "v${{ steps.version.outputs.version }}"
+          git push origin "v${{ steps.version.outputs.version }}"
