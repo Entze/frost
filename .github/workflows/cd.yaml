@@ -16,17 +16,10 @@ jobs:
       should-release: ${{ steps.check.outputs.exists }}
     steps:
       - uses: actions/checkout@v6
-      
+
       - name: Check if RELEASE.txt exists
         id: check
-        run: |
-          if [ -f RELEASE.txt ]; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-            echo "RELEASE.txt found - will trigger release"
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-            echo "RELEASE.txt not found - skipping release"
-          fi
+        run: ./scripts/check-release-file.sh
 
   release:
     name: Release
@@ -40,35 +33,25 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
-      
+
       - uses: jdx/mise-action@v3
         with:
           install: true
           cache: true
           experimental: true
-      
-      - name: Configure git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-      
+
       - name: Run release task
         run: mise run release
-      
+
       - name: Get new version
         id: version
-        run: |
-          version=$(bump-my-version show current_version)
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-      
-      - name: Commit changes
-        run: |
-          git add -A
-          git commit -m "Bump version to ${{ steps.version.outputs.version }}"
-          git push
-      
-      - name: Create and push tag
-        run: |
-          git tag "v${{ steps.version.outputs.version }}"
-          git push origin "v${{ steps.version.outputs.version }}"
+        run: ./scripts/get-version.sh
+
+      - name: Commit and push changes
+        uses: EndBug/add-and-commit@v9
+        with:
+          message: "Bump version to ${{ steps.version.outputs.version }}"
+          default_author: github_actions
+          push: true
+          tag: "v${{ steps.version.outputs.version }}"
+          tag_push: "--force"

@@ -13,7 +13,7 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v6
-      
+
       - name: Check RELEASE.txt format
         run: |
           if [ -f RELEASE.txt ]; then
@@ -22,7 +22,7 @@ jobs:
               echo "ERROR: RELEASE.txt exists but is empty"
               exit 1
             fi
-            
+
             # Check if first line is MAJOR, MINOR, or PATCH
             first_line=$(head -n1 RELEASE.txt)
             if [[ "$first_line" != "MAJOR" && "$first_line" != "MINOR" && "$first_line" != "PATCH" ]]; then
@@ -30,7 +30,7 @@ jobs:
               echo "Found: $first_line"
               exit 1
             fi
-            
+
             echo "RELEASE.txt validation passed"
           else
             echo "RELEASE.txt not found - skipping validation"

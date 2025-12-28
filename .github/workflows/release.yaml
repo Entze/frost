@@ -27,16 +27,16 @@ jobs:
             artifact_path: zig-out/bin/frost.exe
     steps:
       - uses: actions/checkout@v6
-      
+
       - uses: jdx/mise-action@v3
         with:
           install: true
           cache: true
           experimental: true
-      
+
       - name: Build
         run: mise run build
-      
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -53,49 +53,22 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v6
-      
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
-      
+
       - name: Organize artifacts
-        run: |
-          mkdir -p release-artifacts
-          find artifacts -type f -exec cp {} release-artifacts/ \;
-          ls -la release-artifacts/
-      
+        run: ./scripts/organize-artifacts.sh
+
       - name: Generate checksums
-        run: |
-          cd release-artifacts
-          sha256sum -- * > CHECKSUMS.txt
-          cat CHECKSUMS.txt
-      
+        run: ./scripts/generate-checksums.sh
+
       - name: Extract changelog for this version
         id: changelog
-        run: |
-          version="${GITHUB_REF#refs/tags/v}"
-          echo "Extracting changelog for version $version"
-          
-          # Extract the section for this version from CHANGELOG.md
-          awk -v version="$version" '
-            /^## / {
-              if (found) exit;
-              if ($0 ~ version) {
-                found=1;
-                next;
-              }
-            }
-            found && /^## / { exit }
-            found { print }
-          ' CHANGELOG.md > release_notes.txt
-          
-          if [ ! -s release_notes.txt ]; then
-            echo "Release v$version" > release_notes.txt
-          fi
-          
-          cat release_notes.txt
-      
+        run: ./scripts/extract-changelog.sh
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
