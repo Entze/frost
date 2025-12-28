@@ -11,7 +11,7 @@
 const std = @import("std");
 
 // Re-export types from submodules
-pub const Group = @import("pattern/group.zig").Group;
+pub const MatchGroup = @import("pattern/match_group.zig").MatchGroup;
 pub const Match = @import("pattern/match.zig").Match;
 pub const Wildcard = @import("pattern/wildcard.zig").Wildcard;
 pub const Character = @import("pattern/character.zig").Character;

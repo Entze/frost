@@ -2,12 +2,12 @@
 
 const std = @import("std");
 const assert = std.debug.assert;
-const Group = @import("group.zig").Group;
+const MatchGroup = @import("match_group.zig").MatchGroup;
 
 /// Result of a pattern matching operation.
 ///
 /// Contains the number of bytes consumed from the input and an array of matched groups.
-/// Group 0 represents the entire matched pattern.
+/// MatchGroup 0 represents the entire matched pattern.
 /// The maximum number of groups is determined at compile time by the pattern type.
 pub fn Match(comptime max_groups: usize) type {
     return struct {
@@ -20,7 +20,7 @@ pub fn Match(comptime max_groups: usize) type {
 
         /// Matched groups. All groups > 0 are a subgroup of group 0.
         /// Only the first groups_matched elements are valid.
-        groups: [max_groups]Group,
+        groups: [max_groups]MatchGroup,
 
         const Self = @This();
 
@@ -28,7 +28,7 @@ pub fn Match(comptime max_groups: usize) type {
         pub const empty: Self = .{
             .bytes_consumed = 0,
             .groups_matched = 0,
-            .groups = [_]Group{Group{ .begin = 0, .end = 0 }} ** max_groups,
+            .groups = [_]MatchGroup{MatchGroup{ .begin = 0, .end = 0 }} ** max_groups,
         };
 
         /// Creates a new Match result.
@@ -40,7 +40,7 @@ pub fn Match(comptime max_groups: usize) type {
         ///
         /// Postconditions:
         /// - Returns Match with specified values
-        pub fn init(bytes_consumed: usize, groups_matched: usize, groups: [max_groups]Group) Self {
+        pub fn init(bytes_consumed: usize, groups_matched: usize, groups: [max_groups]MatchGroup) Self {
             // Preconditions
             assert(groups_matched <= max_groups);
             assert((groups_matched == 0) == (bytes_consumed == 0));
@@ -71,7 +71,7 @@ test "Match: init with no groups" {
 test "Match: init with single group" {
     const M = Match(1);
     const input = "hello";
-    const groups = [_]Group{Group.init(0, 5)};
+    const groups = [_]MatchGroup{MatchGroup.init(0, 5)};
     const match = M.init(5, 1, groups);
 
     try std.testing.expectEqual(@as(usize, 5), match.bytes_consumed);
@@ -86,7 +86,7 @@ test "Match: init with single group" {
 test "Match: init with multiple groups" {
     const M = Match(2);
     const input = "helloworld";
-    const groups = [_]Group{ Group.init(0, 10), Group.init(5, 10) };
+    const groups = [_]MatchGroup{ MatchGroup.init(0, 10), MatchGroup.init(5, 10) };
     const match = M.init(10, 2, groups);
 
     try std.testing.expectEqual(@as(usize, 10), match.bytes_consumed);
