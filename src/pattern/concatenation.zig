@@ -29,7 +29,7 @@ pub fn Concatenation(comptime max_size: usize) type {
         const Self = @This();
 
         /// Number of groups this pattern produces (always 1: the full match).
-        pub const num_groups = 1;
+        pub const groups_count = 1;
 
         /// Creates a Concatenation from a pattern slice.
         /// The count is taken from the slice length.
@@ -83,7 +83,7 @@ pub fn Concatenation(comptime max_size: usize) type {
         ///
         /// Lifetime:
         /// - input must remain valid for lifetime of returned Match
-        pub fn match(self: Self, input: []const u8) Match(num_groups) {
+        pub fn match(self: Self, input: []const u8) Match(groups_count) {
             // Preconditions
             assert(self.count <= max_size);
             assert(self.count > 0);
@@ -101,7 +101,7 @@ pub fn Concatenation(comptime max_size: usize) type {
 
                 if (pattern_match.bytes_consumed == 0) {
                     // Pattern failed to match
-                    const result = Match(num_groups).empty;
+                    const result = Match(groups_count).empty;
 
                     // Postconditions
                     defer assert(result.bytes_consumed == 0);
@@ -116,7 +116,7 @@ pub fn Concatenation(comptime max_size: usize) type {
 
             // All patterns matched successfully
             const groups = [_]Group{Group.init(0, total_consumed)};
-            const result = Match(num_groups).init(total_consumed, 1, groups);
+            const result = Match(groups_count).init(total_consumed, 1, groups);
 
             // Postconditions
             defer assert(result.bytes_consumed == total_consumed);
