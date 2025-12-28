@@ -90,14 +90,14 @@ pub fn CharacterClass(comptime size: usize) type {
         ///
         /// Lifetime:
         /// - input must remain valid for lifetime of returned Match
-        pub fn match(self: Self, input: []const u8) Match(groups_count) {
+        pub fn match(self: Self, input: []const u8) Match(size) {
             // Preconditions
             assert(self.count > 0);
             assert(self.count <= size);
 
             if (input.len == 0) {
                 // No input to match
-                const result = Match(groups_count).empty;
+                const result = Match(size).empty;
 
                 // Postconditions
                 defer assert(result.bytes_consumed == 0);
@@ -117,8 +117,9 @@ pub fn CharacterClass(comptime size: usize) type {
 
                 if (self.characters[i] == first_char) {
                     // Character matches
-                    const groups = [_]MatchGroup{MatchGroup.init(0, 1)};
-                    const result = Match(groups_count).init(1, 1, groups);
+                    var groups = [_]MatchGroup{MatchGroup{ .begin = 0, .end = 0 }} ** size;
+                    groups[0] = MatchGroup.init(0, 1);
+                    const result = Match(size).init(1, 1, groups);
 
                     // Postconditions
                     defer assert(result.bytes_consumed == 1);
@@ -130,7 +131,7 @@ pub fn CharacterClass(comptime size: usize) type {
             }
 
             // No match found
-            const result = Match(groups_count).empty;
+            const result = Match(size).empty;
 
             // Postconditions
             defer assert(result.bytes_consumed == 0);

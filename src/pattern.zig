@@ -1,11 +1,12 @@
 //! Pattern matching module for building lexer-parser pipelines.
 //!
-//! This module provides a Pattern type as a tagged union with five basic variants:
+//! This module provides a Pattern type as a tagged union with six variants:
 //! - Wildcard: Matches any single character (regex `.`)
 //! - Character: Matches a specific single character
 //! - CharacterClass: Matches characters in a set (regex `[ ]`)
 //! - InvertedCharacterClass: Matches characters not in a set (regex `[^ ]`)
 //! - Concatenation: Matches sequential patterns
+//! - Group: Matches a subpattern and counts as a capture group (regex `(PATTERN)`)
 //!
 //! All patterns are defined at compile time, allowing variants to use arrays for storage.
 
@@ -22,6 +23,7 @@ pub const InvertedCharacterClass = @import("pattern/inverted_character_class.zig
 pub const invertedCharacterClass = @import("pattern/inverted_character_class.zig").invertedCharacterClass;
 pub const Concatenation = @import("pattern/concatenation.zig").Concatenation;
 pub const concatenation = @import("pattern/concatenation.zig").concatenation;
+pub const Group = @import("pattern/group.zig").Group;
 
 /// Pattern tagged union containing all pattern variants.
 ///
@@ -34,11 +36,12 @@ pub const concatenation = @import("pattern/concatenation.zig").concatenation;
 /// - Maximum number of patterns in Concatenation sequences
 pub fn Pattern(comptime max_size: usize) type {
     return union(enum) {
-        wildcard: Wildcard,
-        character: Character,
+        wildcard: Wildcard(max_size),
+        character: Character(max_size),
         character_class: CharacterClass(max_size),
         inverted_character_class: InvertedCharacterClass(max_size),
         concatenation: Concatenation(max_size),
+        group: Group(max_size),
 
         const Self = @This();
 
@@ -58,13 +61,14 @@ pub fn Pattern(comptime max_size: usize) type {
         ///
         /// Lifetime:
         /// - input must remain valid for lifetime of returned Match
-        pub fn match(self: Self, input: []const u8) Match(groups_count) {
+        pub fn match(self: Self, input: []const u8) Match(max_size) {
             return switch (self) {
                 .wildcard => |w| w.match(input),
                 .character => |c| c.match(input),
                 .character_class => |cc| cc.match(input),
                 .inverted_character_class => |icc| icc.match(input),
                 .concatenation => |cat| cat.match(input),
+                .group => |g| g.match(input),
             };
         }
     };
@@ -90,7 +94,7 @@ test Pattern {
 
 test "Pattern: wildcard variant" {
     const P = Pattern(10);
-    const pattern = P{ .wildcard = Wildcard{} };
+    const pattern = P{ .wildcard = Wildcard(10){} };
     const input = "hello";
     const result = pattern.match(input);
 
@@ -100,7 +104,7 @@ test "Pattern: wildcard variant" {
 
 test "Pattern: character variant matching" {
     const P = Pattern(10);
-    const pattern = P{ .character = Character{ .character = 'h' } };
+    const pattern = P{ .character = Character(10){ .character = 'h' } };
     const input = "hello";
     const result = pattern.match(input);
 
@@ -110,7 +114,7 @@ test "Pattern: character variant matching" {
 
 test "Pattern: character variant not matching" {
     const P = Pattern(10);
-    const pattern = P{ .character = Character{ .character = 'x' } };
+    const pattern = P{ .character = Character(10){ .character = 'x' } };
     const input = "hello";
     const result = pattern.match(input);
 
@@ -134,8 +138,8 @@ test "Pattern: character class variant" {
 
 test "Pattern: concatenation variant" {
     const P = Pattern(10);
-    const p1 = P{ .character = Character{ .character = 'h' } };
-    const p2 = P{ .character = Character{ .character = 'i' } };
+    const p1 = P{ .character = Character(10){ .character = 'h' } };
+    const p2 = P{ .character = Character(10){ .character = 'i' } };
     const patterns = [_]*const P{ &p1, &p2 };
     const concat = Concatenation(10).init(&patterns);
     const pattern = P{ .concatenation = concat };
@@ -175,18 +179,168 @@ test "Pattern: inverted character class variant with helper" {
     try std.testing.expectEqual(@as(usize, 0), result2.bytes_consumed);
 }
 
+test "Pattern: group variant wrapping character" {
+    const P = Pattern(10);
+    const char = P{ .character = Character(10){ .character = 'a' } };
+    const pattern = P{ .group = Group(10){ .pattern = &char } };
+
+    const input1 = "abc";
+    const result1 = pattern.match(input1);
+    try std.testing.expectEqual(@as(usize, 1), result1.bytes_consumed);
+    try std.testing.expectEqual(@as(usize, 2), result1.groups_matched);
+    try std.testing.expectEqualStrings("a", input1[result1.groups[0].begin..result1.groups[0].end]);
+    try std.testing.expectEqualStrings("a", input1[result1.groups[1].begin..result1.groups[1].end]);
+
+    const input2 = "bcd";
+    const result2 = pattern.match(input2);
+    try std.testing.expectEqual(@as(usize, 0), result2.bytes_consumed);
+}
+
+test "Pattern: group variant wrapping concatenation" {
+    const P = Pattern(10);
+    const p1 = P{ .character = Character(10){ .character = 'h' } };
+    const p2 = P{ .character = Character(10){ .character = 'i' } };
+    const patterns = [_]*const P{ &p1, &p2 };
+    const concat = Concatenation(10).init(&patterns);
+    const concat_pattern = P{ .concatenation = concat };
+    const pattern = P{ .group = Group(10){ .pattern = &concat_pattern } };
+
+    const input = "hi there";
+    const result = pattern.match(input);
+    try std.testing.expectEqual(@as(usize, 2), result.bytes_consumed);
+    try std.testing.expectEqual(@as(usize, 2), result.groups_matched);
+    try std.testing.expectEqualStrings("hi", input[result.groups[0].begin..result.groups[0].end]);
+    try std.testing.expectEqualStrings("hi", input[result.groups[1].begin..result.groups[1].end]);
+}
+
+test "Pattern: nested group variant" {
+    const P = Pattern(10);
+    const char = P{ .character = Character(10){ .character = 'x' } };
+    const inner_group = P{ .group = Group(10){ .pattern = &char } };
+    const outer_pattern = P{ .group = Group(10){ .pattern = &inner_group } };
+
+    const input1 = "xyz";
+    const result1 = outer_pattern.match(input1);
+    try std.testing.expectEqual(@as(usize, 1), result1.bytes_consumed);
+    try std.testing.expectEqual(@as(usize, 3), result1.groups_matched);
+    try std.testing.expectEqualStrings("x", input1[result1.groups[0].begin..result1.groups[0].end]);
+    try std.testing.expectEqualStrings("x", input1[result1.groups[1].begin..result1.groups[1].end]);
+    try std.testing.expectEqualStrings("x", input1[result1.groups[2].begin..result1.groups[2].end]);
+
+    const input2 = "abc";
+    const result2 = outer_pattern.match(input2);
+    try std.testing.expectEqual(@as(usize, 0), result2.bytes_consumed);
+}
+
+test "Pattern: ((abc)xyz) example - nested group in concatenation" {
+    // Pattern: ((abc)xyz)
+    // Group 0: ((abc)xyz) - the whole match
+    // Group 1: (abc)xyz - outer group
+    // Group 2: abc - inner group
+    const P = Pattern(10);
+
+    // Build "abc" pattern
+    const pa = P{ .character = Character(10){ .character = 'a' } };
+    const pb = P{ .character = Character(10){ .character = 'b' } };
+    const pc = P{ .character = Character(10){ .character = 'c' } };
+    const abc_patterns = [_]*const P{ &pa, &pb, &pc };
+    const abc_concat = P{ .concatenation = Concatenation(10).init(&abc_patterns) };
+
+    // Wrap "abc" in a group: (abc)
+    const inner_group = P{ .group = Group(10){ .pattern = &abc_concat } };
+
+    // Build "xyz" pattern
+    const px = P{ .character = Character(10){ .character = 'x' } };
+    const py = P{ .character = Character(10){ .character = 'y' } };
+    const pz = P{ .character = Character(10){ .character = 'z' } };
+    const xyz_patterns = [_]*const P{ &px, &py, &pz };
+    const xyz_concat = P{ .concatenation = Concatenation(10).init(&xyz_patterns) };
+
+    // Concatenate (abc) with xyz: (abc)xyz
+    const concat_patterns = [_]*const P{ &inner_group, &xyz_concat };
+    const full_concat = P{ .concatenation = Concatenation(10).init(&concat_patterns) };
+
+    // Wrap in outer group: ((abc)xyz)
+    const outer_pattern = P{ .group = Group(10){ .pattern = &full_concat } };
+
+    const input = "abcxyz";
+    const result = outer_pattern.match(input);
+
+    try std.testing.expectEqual(@as(usize, 6), result.bytes_consumed);
+    try std.testing.expectEqual(@as(usize, 3), result.groups_matched);
+    // Group 0: the whole match
+    try std.testing.expectEqualStrings("abcxyz", input[result.groups[0].begin..result.groups[0].end]);
+    // Group 1: outer group (abc)xyz
+    try std.testing.expectEqualStrings("abcxyz", input[result.groups[1].begin..result.groups[1].end]);
+    // Group 2: inner group abc
+    try std.testing.expectEqualStrings("abc", input[result.groups[2].begin..result.groups[2].end]);
+}
+
+test "Pattern: (abc)((x)yz) example - multiple groups in concatenation" {
+    // Pattern: (abc)((x)yz)
+    // Group 0: (abc)((x)yz) - the whole match
+    // Group 1: abc - first group
+    // Group 2: (x)yz - second outer group
+    // Group 3: x - second inner group
+    const P = Pattern(10);
+
+    // Build first group: (abc)
+    const pa = P{ .character = Character(10){ .character = 'a' } };
+    const pb = P{ .character = Character(10){ .character = 'b' } };
+    const pc = P{ .character = Character(10){ .character = 'c' } };
+    const abc_patterns = [_]*const P{ &pa, &pb, &pc };
+    const abc_concat = P{ .concatenation = Concatenation(10).init(&abc_patterns) };
+    const group1 = P{ .group = Group(10){ .pattern = &abc_concat } };
+
+    // Build nested group: ((x)yz)
+    // Inner: (x)
+    const px = P{ .character = Character(10){ .character = 'x' } };
+    const x_group = P{ .group = Group(10){ .pattern = &px } };
+
+    // yz
+    const py = P{ .character = Character(10){ .character = 'y' } };
+    const pz = P{ .character = Character(10){ .character = 'z' } };
+    const yz_patterns = [_]*const P{ &py, &pz };
+    const yz_concat = P{ .concatenation = Concatenation(10).init(&yz_patterns) };
+
+    // (x)yz
+    const xyz_patterns = [_]*const P{ &x_group, &yz_concat };
+    const xyz_concat = P{ .concatenation = Concatenation(10).init(&xyz_patterns) };
+
+    // ((x)yz)
+    const group2 = P{ .group = Group(10){ .pattern = &xyz_concat } };
+
+    // Concatenate (abc) with ((x)yz)
+    const full_patterns = [_]*const P{ &group1, &group2 };
+    const full_pattern = P{ .concatenation = Concatenation(10).init(&full_patterns) };
+
+    const input = "abcxyz";
+    const result = full_pattern.match(input);
+
+    try std.testing.expectEqual(@as(usize, 6), result.bytes_consumed);
+    try std.testing.expectEqual(@as(usize, 4), result.groups_matched);
+    // Group 0: the whole match
+    try std.testing.expectEqualStrings("abcxyz", input[result.groups[0].begin..result.groups[0].end]);
+    // Group 1: first capture group (abc)
+    try std.testing.expectEqualStrings("abc", input[result.groups[1].begin..result.groups[1].end]);
+    // Group 2: second outer capture group (x)yz
+    try std.testing.expectEqualStrings("xyz", input[result.groups[2].begin..result.groups[2].end]);
+    // Group 3: second inner capture group x
+    try std.testing.expectEqualStrings("x", input[result.groups[3].begin..result.groups[3].end]);
+}
+
 test "fuzz: Pattern union never panics" {
     const Context = struct {
         fn testOne(context: @This(), input: []const u8) anyerror!void {
             _ = context;
             const P = Pattern(10);
             // Test wildcard variant
-            const pattern1 = P{ .wildcard = Wildcard{} };
+            const pattern1 = P{ .wildcard = Wildcard(10){} };
             const result1 = pattern1.match(input);
             try std.testing.expect(result1.bytes_consumed <= input.len);
 
             // Test character variant
-            const pattern2 = P{ .character = Character{ .character = 'x' } };
+            const pattern2 = P{ .character = Character(10){ .character = 'x' } };
             const result2 = pattern2.match(input);
             try std.testing.expect(result2.bytes_consumed <= input.len);
 
@@ -203,13 +357,19 @@ test "fuzz: Pattern union never panics" {
             try std.testing.expect(result4.bytes_consumed <= input.len);
 
             // Test concatenation variant
-            const p1 = P{ .character = Character{ .character = 'a' } };
-            const p2 = P{ .character = Character{ .character = 'b' } };
+            const p1 = P{ .character = Character(10){ .character = 'a' } };
+            const p2 = P{ .character = Character(10){ .character = 'b' } };
             const patterns = [_]*const P{ &p1, &p2 };
             const concat = Concatenation(10).init(&patterns);
             const pattern5 = P{ .concatenation = concat };
             const result5 = pattern5.match(input);
             try std.testing.expect(result5.bytes_consumed <= input.len);
+
+            // Test group variant
+            const char_pattern = P{ .character = Character(10){ .character = 'x' } };
+            const pattern6 = P{ .group = Group(10){ .pattern = &char_pattern } };
+            const result6 = pattern6.match(input);
+            try std.testing.expect(result6.bytes_consumed <= input.len);
         }
     };
     try std.testing.fuzz(Context{}, Context.testOne, .{});
