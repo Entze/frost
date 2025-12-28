@@ -10,12 +10,7 @@ const Match = @import("match.zig").Match;
 /// Since patterns are defined at compile time, the character set is stored
 /// as a compile-time array.
 pub fn invertedCharacterClass(comptime characters: []const u8) InvertedCharacterClass(characters.len) {
-    var result: InvertedCharacterClass(characters.len) = undefined;
-    result.count = characters.len;
-    for (characters, 0..) |c, i| {
-        result.characters[i] = c;
-    }
-    return result;
+    return InvertedCharacterClass(characters.len).init(characters);
 }
 
 /// InvertedCharacterClass pattern that matches any character not in a set (regex `[^ ]`).
