@@ -13,6 +13,24 @@ pub fn invertedCharacterClass(comptime characters: []const u8) InvertedCharacter
     return InvertedCharacterClass(characters.len).init(characters);
 }
 
+test "invertedCharacterClass: doctest - expected vs actual style" {
+    // Expected: Match first non-vowel 'b' in "banana"
+    const expected_bytes: usize = 1;
+    const expected_groups: usize = 1;
+    const expected_match = "b";
+
+    // Actual: Create and use invertedCharacterClass
+    const nonVowels = invertedCharacterClass("aeiou");
+    const input = "banana";
+    const result = nonVowels.match(input);
+    const actual_match = input[result.groups[0].begin..result.groups[0].end];
+
+    // Verify expectations
+    try std.testing.expectEqual(expected_bytes, result.bytes_consumed);
+    try std.testing.expectEqual(expected_groups, result.groups_matched);
+    try std.testing.expectEqualStrings(expected_match, actual_match);
+}
+
 /// InvertedCharacterClass pattern that matches any character not in a set (regex `[^ ]`).
 ///
 /// Since patterns are defined at compile time, the character set is stored
@@ -43,6 +61,26 @@ pub fn InvertedCharacterClass(comptime size: usize) type {
                 result.characters[i] = c;
             }
             return result;
+        }
+
+        test "init: doctest - expected vs actual style" {
+            // Expected: Create InvertedCharacterClass excluding vowels that matches 'd' in "dog"
+            const expected_count: usize = 5;
+            const expected_bytes: usize = 1;
+            const expected_groups: usize = 1;
+            const expected_match = "d";
+
+            // Actual: Create and use InvertedCharacterClass.init
+            const icc = InvertedCharacterClass(10).init("aeiou");
+            const input = "dog";
+            const result = icc.match(input);
+            const actual_match = input[result.groups[0].begin..result.groups[0].end];
+
+            // Verify expectations
+            try std.testing.expectEqual(expected_count, icc.count);
+            try std.testing.expectEqual(expected_bytes, result.bytes_consumed);
+            try std.testing.expectEqual(expected_groups, result.groups_matched);
+            try std.testing.expectEqualStrings(expected_match, actual_match);
         }
 
         /// Matches any character not in the character set.

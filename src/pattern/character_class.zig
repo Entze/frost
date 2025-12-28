@@ -18,6 +18,24 @@ pub fn characterClass(comptime characters: []const u8) CharacterClass(characters
     return result;
 }
 
+test "characterClass: doctest - expected vs actual style" {
+    // Expected: Match first vowel 'a' in "apple"
+    const expected_bytes: usize = 1;
+    const expected_groups: usize = 1;
+    const expected_match = "a";
+
+    // Actual: Create and use characterClass
+    const vowels = characterClass("aeiou");
+    const input = "apple";
+    const result = vowels.match(input);
+    const actual_match = input[result.groups[0].begin..result.groups[0].end];
+
+    // Verify expectations
+    try std.testing.expectEqual(expected_bytes, result.bytes_consumed);
+    try std.testing.expectEqual(expected_groups, result.groups_matched);
+    try std.testing.expectEqualStrings(expected_match, actual_match);
+}
+
 test characterClass {
     // Helper function to create CharacterClass with inferred size
     const vowels = characterClass("aeiou");
@@ -73,6 +91,26 @@ pub fn CharacterClass(comptime size: usize) type {
             const result = cc.match(input);
             try std.testing.expectEqual(@as(usize, 1), result.bytes_consumed);
             try std.testing.expectEqualStrings("a", input[result.groups[0].begin..result.groups[0].end]);
+        }
+
+        test "init: doctest - expected vs actual style" {
+            // Expected: Create CharacterClass with 3 vowels that matches 'a' in "apple"
+            const expected_count: usize = 3;
+            const expected_bytes: usize = 1;
+            const expected_groups: usize = 1;
+            const expected_match = "a";
+
+            // Actual: Create and use CharacterClass.init
+            const cc = CharacterClass(10).init("aei");
+            const input = "apple";
+            const result = cc.match(input);
+            const actual_match = input[result.groups[0].begin..result.groups[0].end];
+
+            // Verify expectations
+            try std.testing.expectEqual(expected_count, cc.count);
+            try std.testing.expectEqual(expected_bytes, result.bytes_consumed);
+            try std.testing.expectEqual(expected_groups, result.groups_matched);
+            try std.testing.expectEqualStrings(expected_match, actual_match);
         }
 
         /// Matches any character from the character set.
