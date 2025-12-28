@@ -10,6 +10,8 @@ jobs:
     name: Check for RELEASE.txt
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
     outputs:
       should-release: ${{ steps.check.outputs.exists }}
     steps:
