@@ -47,6 +47,9 @@ jobs:
       - name: Run release task
         run: mise run release:do-release
 
+      - name: Fix formatting
+        run: mise run fix --all
+
       - name: Get new version
         id: version
         run: |

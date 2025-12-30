@@ -1,0 +1,6 @@
+MINOR
+- Introduced continuous delivery pipeline with automated version management
+- Introduced automated changelog generation from release notes
+- Introduced multi-platform release builds for Linux, macOS, and Windows
+- Added RELEASE.txt based release signaling process
+- Added comprehensive release process documentation

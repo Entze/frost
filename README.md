@@ -78,7 +78,13 @@ mise run fix --all
 
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
 
-Please make sure to update tests as appropriate and run `mise run fix --all` before submitting.
+Please see [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines on:
+- Development setup and workflow
+- Release process using RELEASE.txt
+- Code style and best practices
+- Pull request guidelines
+
+Before submitting, make sure to run `mise run check --all` and `mise run fix --all`.
 
 ## License
 
