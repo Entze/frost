@@ -13,6 +13,32 @@ Frost is a library and application for converting from and to Conjunctive Normal
 - `mise run check` - Run checks (required before each commit)
 - `mise run fix --all` - Fix formatting (required before each commit)
 
+## Release Process
+
+**IMPORTANT**: When creating a pull request that should trigger a release, you MUST include a `RELEASE.txt` file in the repository root.
+
+### RELEASE.txt Format
+
+1. **First line**: Must be exactly one of: `MAJOR`, `MINOR`, or `PATCH`
+   - `MAJOR` - Breaking changes (reserved for 1.0.0+)
+   - `MINOR` - New features or significant changes (use pre-1.0.0)
+   - `PATCH` - Bug fixes or minor improvements
+
+2. **Subsequent lines**: Short, precise plain-text description of changes
+   - Start each item with action verbs: "Added", "Introduced", "Deprecated", "Removed", "Changed", "Improved", "Reworked"
+   - Focus on user-facing changes
+   - Be concise but descriptive
+
+### Example RELEASE.txt
+
+```
+MINOR
+- Introduced continuous delivery pipeline
+- Added automated version management
+```
+
+See [CONTRIBUTING.md](../CONTRIBUTING.md) for complete release process details.
+
 ## Zig Zen Principles
 
 Follow the Zig zen philosophy in all code:

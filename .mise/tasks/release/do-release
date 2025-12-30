@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+#MISE description="Orchestrate full release: bump version, update changelog, and clean up"
+set -euo pipefail
+
+# Read the bump type from RELEASE.txt and convert to lowercase
+bump_type=$(head --lines=1 RELEASE.txt | tr '[:upper:]' '[:lower:]')
+
+# Run bump
+bump-my-version bump "$bump_type"
+
+# Run changelog tasks
+mise run release:changelog-version-new
+mise run release:changelog-release-copy
+
+# Run release-clear
+mise run release:release-clear

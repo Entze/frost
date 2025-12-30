@@ -1,0 +1,66 @@
+name: CD
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  check-release:
+    name: Check for RELEASE.txt
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      should-release: ${{ steps.check.outputs.exists }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: jdx/mise-action@v3
+        with:
+          experimental: true
+
+      - name: Check if RELEASE.txt exists
+        id: check
+        run: mise run cd:check-release-file
+
+  release:
+    name: Release
+    needs: check-release
+    if: needs.check-release.outputs.should-release == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: jdx/mise-action@v3
+        with:
+          install: true
+          cache: true
+          experimental: true
+
+      - name: Run release task
+        run: mise run release:do-release
+
+      - name: Fix formatting
+        run: mise run fix
+
+      - name: Get new version
+        id: version
+        run: |
+          version=$(bump-my-version show current_version)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Commit and push changes
+        uses: EndBug/add-and-commit@v9
+        with:
+          message: "Bump version to ${{ steps.version.outputs.version }}"
+          default_author: github_actions
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          push: true
+          tag: "v${{ steps.version.outputs.version }}"
