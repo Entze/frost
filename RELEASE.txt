@@ -1,3 +1,0 @@
-MINOR
-- Introduced continuous delivery pipeline with automated version management
-- Drafted alpha version of CNF program
