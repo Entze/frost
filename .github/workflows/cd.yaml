@@ -16,11 +16,9 @@ jobs:
       should-release: ${{ steps.check.outputs.exists }}
     steps:
       - uses: actions/checkout@v6
-      
+
       - uses: jdx/mise-action@v3
         with:
-          install: true
-          cache: true
           experimental: true
 
       - name: Check if RELEASE.txt exists
