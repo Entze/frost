@@ -1,0 +1,2 @@
+PATCH
+- Fixed mise-action configuration to explicitly disable install and cache for task-runner-only jobs

@@ -16,6 +16,8 @@ jobs:
 
       - uses: jdx/mise-action@v3
         with:
+          install: false
+          cache: false
           experimental: true
 
       - name: Check RELEASE.txt format
