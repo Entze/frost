@@ -33,6 +33,8 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: write
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -64,3 +66,83 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           push: true
           tag: "v${{ steps.version.outputs.version }}"
+
+  build:
+    name: Build on ${{ matrix.os }}
+    needs: release
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            artifact_name: frost-linux
+            artifact_path: zig-out/bin/frost
+          - os: macos-latest
+            artifact_name: frost-macos
+            artifact_path: zig-out/bin/frost
+          - os: windows-latest
+            artifact_name: frost-windows.exe
+            artifact_path: zig-out/bin/frost.exe
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: "v${{ needs.release.outputs.version }}"
+
+      - uses: jdx/mise-action@v3
+        with:
+          install: true
+          cache: true
+          experimental: true
+
+      - name: Build
+        run: mise run build
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_path }}
+          if-no-files-found: error
+
+  create-release:
+    name: Create Release
+    needs: [release, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: "v${{ needs.release.outputs.version }}"
+
+      - uses: jdx/mise-action@v3
+        with:
+          experimental: true
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Organize artifacts
+        run: mise run release:organize-artifacts
+
+      - name: Generate checksums
+        run: mise run release:generate-checksums
+
+      - name: Extract changelog for this version
+        id: changelog
+        run: mise run release:extract-changelog
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "v${{ needs.release.outputs.version }}"
+          body_path: release_notes.txt
+          files: release-artifacts/*
+          fail_on_unmatched_files: true
