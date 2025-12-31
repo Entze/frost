@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+
+## 0.1.4 (2025-12-31)
+
+- Reworked build.zig to expose explicit build steps with target-specific naming
+- Implemented multi-target release builds for 8 platforms
+
 ## 0.1.3 (2025-12-31)
 
 - Added Zig build system documentation guide
