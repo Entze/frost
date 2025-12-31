@@ -58,14 +58,45 @@ const frost = @import("frost");
 
 ### Building
 
+Build the executable (output: `frost-{os}-{arch}[-{abi}]`):
+
 ```bash
-mise run build
+zig build              # Default: build and install executable
+zig build exe          # Explicitly build executable
+```
+
+Build libraries (output: `libfrost-{os}-{arch}[-{abi}].{a|so|dylib}` or `frost-{os}-{arch}[-{abi}].{lib|dll}` on Windows):
+
+```bash
+zig build lib-static   # Build static library
+zig build lib-dynamic  # Build dynamic/shared library
+```
+
+Build for release (all supported targets: Linux x86_64/aarch64 musl/gnu, macOS x86_64/aarch64, Windows x86_64/aarch64 gnu):
+
+```bash
+zig build release                           # Build for all supported targets (ReleaseFast)
+zig build release -Drelease-profile=Debug   # Use Debug profile
+```
+
+Configure target and optimization:
+
+```bash
+zig build -Dtarget=x86_64-linux-musl -Doptimize=ReleaseSmall
+zig build -Dtarget=aarch64-macos -Doptimize=ReleaseFast
 ```
 
 ### Testing
 
 ```bash
-mise run test
+zig build test         # Run all tests
+mise run test          # Alternative using mise
+```
+
+### Documentation
+
+```bash
+zig build docs         # (Not yet implemented)
 ```
 
 ### Formatting
