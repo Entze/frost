@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+
+## 0.1.5 (2025-12-31)
+
+- Introduced GitHub Actions workflow instruction file for AI assistants
+- Added mise task instruction file documenting TOML and file-based patterns
+
 ## 0.1.4 (2025-12-31)
 
 - Reworked build.zig to expose explicit build steps with target-specific naming
