@@ -1,12 +1,65 @@
 const std = @import("std");
 
+/// Represents a build target with OS, CPU architecture, and ABI information.
+const BuildTarget = struct {
+    os: std.Target.Os.Tag,
+    arch: std.Target.Cpu.Arch,
+    abi: std.Target.Abi,
+
+    /// Converts the build target to a target query string.
+    ///
+    /// Returns:
+    /// - Target query string in format "{arch}-{os}[-{abi}]"
+    ///
+    /// Preconditions:
+    /// - os, arch, and abi must be valid enum values
+    ///
+    /// Postconditions:
+    /// - Returns valid target triple string compatible with Zig's target system
+    fn toQueryString(self: BuildTarget, allocator: std.mem.Allocator) ![]const u8 {
+        const os_str = @tagName(self.os);
+        const arch_str = @tagName(self.arch);
+        const abi_str = @tagName(self.abi);
+
+        if (self.abi == .none) {
+            return std.fmt.allocPrint(allocator, "{s}-{s}", .{ arch_str, os_str });
+        } else {
+            return std.fmt.allocPrint(allocator, "{s}-{s}-{s}", .{ arch_str, os_str, abi_str });
+        }
+    }
+};
+
+/// File extension for artifacts based on the target platform.
+const ArtifactExtension = union(enum) {
+    none,
+    exe,
+    lib,
+    dll,
+    dylib,
+    a,
+    so,
+
+    /// Returns the string representation of the extension (without the dot).
+    fn toString(self: ArtifactExtension) ?[]const u8 {
+        return switch (self) {
+            .none => null,
+            .exe => "exe",
+            .lib => "lib",
+            .dll => "dll",
+            .dylib => "dylib",
+            .a => "a",
+            .so => "so",
+        };
+    }
+};
+
 /// Generates a target-specific artifact name in the format: {base}-{os}-{arch}[-{abi}][.ext]
 ///
 /// Parameters:
 /// - allocator: Allocator for string formatting (borrowed)
 /// - base_name: Base name of the artifact without extension (borrowed)
 /// - target: Resolved build target containing OS, CPU architecture, and ABI info (borrowed)
-/// - extension: Optional file extension (e.g., "exe" for Windows), can be null (borrowed)
+/// - extension: Optional file extension (borrowed)
 ///
 /// Returns:
 /// - Formatted string with target-specific name (caller owns memory)
@@ -21,7 +74,7 @@ fn formatTargetName(
     allocator: std.mem.Allocator,
     base_name: []const u8,
     target: std.Build.ResolvedTarget,
-    extension: ?[]const u8,
+    extension: ArtifactExtension,
 ) ![]const u8 {
     std.debug.assert(base_name.len > 0);
 
@@ -36,13 +89,150 @@ fn formatTargetName(
         try std.fmt.allocPrint(allocator, "{s}-{s}-{s}", .{ base_name, os_tag, arch_tag });
 
     // Add extension if provided
-    if (extension) |ext| {
+    if (extension.toString()) |ext| {
         defer allocator.free(name_with_target);
         return std.fmt.allocPrint(allocator, "{s}.{s}", .{ name_with_target, ext });
     }
 
     // No extension, return name_with_target directly
     return name_with_target;
+}
+
+test "formatTargetName: basic target without ABI" {
+    const allocator = std.testing.allocator;
+
+    // Create a mock target
+    const target = std.Build.ResolvedTarget{
+        .query = .{},
+        .result = .{
+            .cpu = .{
+                .arch = .x86_64,
+                .model = &std.Target.x86.cpu.baseline,
+                .features = std.Target.x86.featureSet(&.{}),
+            },
+            .os = .{
+                .tag = .linux,
+                .version_range = .{ .none = {} },
+            },
+            .abi = .none,
+            .ofmt = .elf,
+            .dynamic_linker = std.Target.DynamicLinker.none,
+        },
+    };
+
+    const result = try formatTargetName(allocator, "frost", target, .none);
+    defer allocator.free(result);
+
+    const expected = "frost-linux-x86_64";
+    try std.testing.expectEqualStrings(expected, result);
+}
+
+test "formatTargetName: target with ABI" {
+    const allocator = std.testing.allocator;
+
+    const target = std.Build.ResolvedTarget{
+        .query = .{},
+        .result = .{
+            .cpu = .{
+                .arch = .aarch64,
+                .model = &std.Target.aarch64.cpu.generic,
+                .features = std.Target.aarch64.featureSet(&.{}),
+            },
+            .os = .{
+                .tag = .linux,
+                .version_range = .{ .none = {} },
+            },
+            .abi = .musl,
+            .ofmt = .elf,
+            .dynamic_linker = std.Target.DynamicLinker.none,
+        },
+    };
+
+    const result = try formatTargetName(allocator, "frost", target, .none);
+    defer allocator.free(result);
+
+    const expected = "frost-linux-aarch64-musl";
+    try std.testing.expectEqualStrings(expected, result);
+}
+
+test "formatTargetName: with extension" {
+    const allocator = std.testing.allocator;
+
+    const target = std.Build.ResolvedTarget{
+        .query = .{},
+        .result = .{
+            .cpu = .{
+                .arch = .x86_64,
+                .model = &std.Target.x86.cpu.baseline,
+                .features = std.Target.x86.featureSet(&.{}),
+            },
+            .os = .{
+                .tag = .windows,
+                .version_range = .{ .none = {} },
+            },
+            .abi = .gnu,
+            .ofmt = .coff,
+            .dynamic_linker = std.Target.DynamicLinker.none,
+        },
+    };
+
+    const result = try formatTargetName(allocator, "frost", target, .exe);
+    defer allocator.free(result);
+
+    const expected = "frost-windows-x86_64-gnu.exe";
+    try std.testing.expectEqualStrings(expected, result);
+}
+
+test "formatTargetName: with std.testing.FailingAllocator should return error" {
+    var failing_allocator = std.testing.FailingAllocator.init(std.testing.allocator, .{ .fail_index = 0 });
+    const allocator = failing_allocator.allocator();
+
+    const target = std.Build.ResolvedTarget{
+        .query = .{},
+        .result = .{
+            .cpu = .{
+                .arch = .x86_64,
+                .model = &std.Target.x86.cpu.baseline,
+                .features = std.Target.x86.featureSet(&.{}),
+            },
+            .os = .{
+                .tag = .linux,
+                .version_range = .{ .none = {} },
+            },
+            .abi = .none,
+            .ofmt = .elf,
+            .dynamic_linker = std.Target.DynamicLinker.none,
+        },
+    };
+
+    const result = formatTargetName(allocator, "frost", target, .none);
+    try std.testing.expectError(error.OutOfMemory, result);
+}
+
+test "formatTargetName: with FailingAllocator on second allocation should return error" {
+    var failing_allocator = std.testing.FailingAllocator.init(std.testing.allocator, .{ .fail_index = 1 });
+    const allocator = failing_allocator.allocator();
+
+    const target = std.Build.ResolvedTarget{
+        .query = .{},
+        .result = .{
+            .cpu = .{
+                .arch = .x86_64,
+                .model = &std.Target.x86.cpu.baseline,
+                .features = std.Target.x86.featureSet(&.{}),
+            },
+            .os = .{
+                .tag = .windows,
+                .version_range = .{ .none = {} },
+            },
+            .abi = .gnu,
+            .ofmt = .coff,
+            .dynamic_linker = std.Target.DynamicLinker.none,
+        },
+    };
+
+    const result = formatTargetName(allocator, "frost", target, .exe);
+    try std.testing.expectError(error.OutOfMemory, result);
 }
 
 /// Creates an executable artifact with target-specific naming.
@@ -72,7 +262,7 @@ fn createExecutable(
         b.allocator,
         "frost",
         target,
-        null,
+        .none,
     ) catch @panic("Failed to allocate memory for executable name");
 
     const exe = b.addExecutable(.{
@@ -114,7 +304,7 @@ fn createStaticLibrary(
         b.allocator,
         "frost",
         target,
-        null,
+        .none,
     ) catch @panic("Failed to allocate memory for static library name");
 
     const lib = b.addLibrary(.{
@@ -154,7 +344,7 @@ fn createSharedLibrary(
         b.allocator,
         "frost",
         target,
-        null,
+        .none,
     ) catch @panic("Failed to allocate memory for shared library name");
 
     const lib = b.addLibrary(.{
@@ -173,26 +363,26 @@ fn createSharedLibrary(
 /// Defines supported target triples for release builds.
 ///
 /// Returns:
-/// - Array of target query strings for cross-compilation
+/// - Array of BuildTarget structs for cross-compilation
 ///
 /// Preconditions:
 /// - None
 ///
 /// Postconditions:
-/// - Returns valid target triple strings compatible with Zig's target system
-fn getSupportedTargets() []const []const u8 {
-    return &[_][]const u8{
+/// - Returns valid target configurations compatible with Zig's target system
+fn getSupportedTargets() []const BuildTarget {
+    return &[_]BuildTarget{
         // Linux targets
-        "x86_64-linux-musl",
-        "x86_64-linux-gnu",
-        "aarch64-linux-musl",
-        "aarch64-linux-gnu",
+        .{ .os = .linux, .arch = .x86_64, .abi = .musl },
+        .{ .os = .linux, .arch = .x86_64, .abi = .gnu },
+        .{ .os = .linux, .arch = .aarch64, .abi = .musl },
+        .{ .os = .linux, .arch = .aarch64, .abi = .gnu },
         // macOS targets
-        "x86_64-macos",
-        "aarch64-macos",
+        .{ .os = .macos, .arch = .x86_64, .abi = .none },
+        .{ .os = .macos, .arch = .aarch64, .abi = .none },
         // Windows targets
-        "x86_64-windows-gnu",
-        "aarch64-windows-gnu",
+        .{ .os = .windows, .arch = .x86_64, .abi = .gnu },
+        .{ .os = .windows, .arch = .aarch64, .abi = .gnu },
     };
 }
 
@@ -258,9 +448,14 @@ pub fn build(b: *std.Build) void {
     const release_step = b.step("release", "Build for all supported target platforms");
 
     const supported_targets = getSupportedTargets();
-    for (supported_targets) |target_query_str| {
-        const query = std.Target.Query.parse(.{ .arch_os_abi = target_query_str }) catch |err| {
-            std.debug.panic("Invalid hardcoded target '{s}': {}\n", .{ target_query_str, err });
+    for (supported_targets) |build_target| {
+        const query_str = build_target.toQueryString(b.allocator) catch |err| {
+            std.debug.panic("Failed to create query string for target: {}\n", .{err});
+        };
+        defer b.allocator.free(query_str);
+
+        const query = std.Target.Query.parse(.{ .arch_os_abi = query_str }) catch |err| {
+            std.debug.panic("Invalid hardcoded target '{s}': {}\n", .{ query_str, err });
         };
 
         const release_target = b.resolveTargetQuery(query);
