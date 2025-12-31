@@ -61,7 +61,7 @@ const frost = @import("frost");
 Build the executable:
 
 ```bash
-zig build              # Build for native target (default step)
+zig build              # Default: build and install executable
 zig build exe          # Explicitly build executable
 ```
 

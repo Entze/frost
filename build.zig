@@ -35,14 +35,14 @@ fn formatTargetName(
     else
         try std.fmt.allocPrint(allocator, "{s}-{s}-{s}", .{ base_name, os_tag, arch_tag });
 
-    defer allocator.free(name_with_target);
-
     // Add extension if provided
     if (extension) |ext| {
+        defer allocator.free(name_with_target);
         return std.fmt.allocPrint(allocator, "{s}.{s}", .{ name_with_target, ext });
     }
 
-    return allocator.dupe(u8, name_with_target);
+    // No extension, return name_with_target directly
+    return name_with_target;
 }
 
 /// Creates an executable artifact with target-specific naming.
