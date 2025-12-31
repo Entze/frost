@@ -2,65 +2,22 @@
 #MISE description="Build dynamic/shared library"
 set -euo pipefail
 
-# Parse command-line options
-PROFILE=""
-TARGET=""
-CPU=""
+#USAGE flag "--profile <mode>" help="Optimization profile (Debug, ReleaseSafe, ReleaseFast, ReleaseSmall)"
+#USAGE flag "--target <triple>" help="Target platform (e.g., x86_64-linux-musl, aarch64-macos)"
+#USAGE flag "--cpu <features>" help="CPU feature flags"
 
-while [[ $# -gt 0 ]]; do
-  case $1 in
-    --help|-h)
-      echo "Usage: mise run build:lib-dynamic [OPTIONS]"
-      echo ""
-      echo "Build the Frost dynamic/shared library with configurable options."
-      echo ""
-      echo "OPTIONS:"
-      echo "  --profile <mode>     Optimization profile (Debug, ReleaseSafe, ReleaseFast, ReleaseSmall)"
-      echo "  --target <triple>    Target platform (e.g., x86_64-linux-musl, aarch64-macos)"
-      echo "  --cpu <features>     CPU feature flags"
-      echo "  -h, --help          Show this help message"
-      echo ""
-      echo "EXAMPLES:"
-      echo "  mise run build:lib-dynamic"
-      echo "  mise run build:lib-dynamic -- --profile ReleaseFast"
-      echo "  mise run build:lib-dynamic -- --target x86_64-linux-musl"
-      exit 0
-      ;;
-    --profile)
-      PROFILE="$2"
-      shift 2
-      ;;
-    --target)
-      TARGET="$2"
-      shift 2
-      ;;
-    --cpu)
-      CPU="$2"
-      shift 2
-      ;;
-    *)
-      echo "Unknown option: $1"
-      echo "Usage: mise run build:lib-dynamic [--profile <mode>] [--target <triple>] [--cpu <features>]"
-      echo "Run 'mise run build:lib-dynamic -- --help' for more information"
-      exit 1
-      ;;
-  esac
-done
-
-# Build the command with optional arguments
 CMD="zig build lib-dynamic"
 
-if [ -n "$PROFILE" ]; then
-  CMD="$CMD -Doptimize=$PROFILE"
+if [ -n "${usage_profile:-}" ]; then
+  CMD="$CMD -Doptimize=$usage_profile"
 fi
 
-if [ -n "$TARGET" ]; then
-  CMD="$CMD -Dtarget=$TARGET"
+if [ -n "${usage_target:-}" ]; then
+  CMD="$CMD -Dtarget=$usage_target"
 fi
 
-if [ -n "$CPU" ]; then
-  CMD="$CMD -Dcpu=$CPU"
+if [ -n "${usage_cpu:-}" ]; then
+  CMD="$CMD -Dcpu=$usage_cpu"
 fi
 
-# Execute the command
 eval "$CMD"
