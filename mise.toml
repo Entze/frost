@@ -9,6 +9,14 @@ actionlint = "1.7.9"
 [tasks.build]
 run = "zig build"
 
+[tasks.docs]
+description = "Generate documentation"
+run = "zig build docs"
+
+[tasks.release]
+description = "Build for all supported target platforms"
+run = "zig build release"
+
 [tasks.test]
 depends = ["test:*"]
 
