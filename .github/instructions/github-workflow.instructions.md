@@ -33,14 +33,12 @@ This project uses [mise](https://mise.jdx.dev/) for tool version management:
 ```yaml
 - uses: jdx/mise-action@v3
   with:
-    install: true
-    cache: true
-    experimental: true
+    install: true        # Install tools from mise.toml
+    cache: true          # Cache installed tools
+    experimental: true   # Enable experimental features
 ```
 
-### Release Automation
-
-This project uses a `RELEASE.txt` file (first line: `MAJOR`, `MINOR`, or `PATCH`) to trigger releases via the CD workflow
+Set `install: false` and `cache: false` explicitly when the job only runs mise tasks without needing the project's dev-dependencies installed (e.g., checking for file existence).
 
 ## References
 
