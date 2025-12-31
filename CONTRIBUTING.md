@@ -98,7 +98,7 @@ When your pull request with `RELEASE.txt` is merged to `main`:
 2. **Version Bump**: The version in `build.zig.zon` is automatically incremented
 3. **Changelog Update**: Release notes from `RELEASE.txt` are added to `CHANGELOG.md`
 4. **Git Tag**: A version tag (e.g., `v0.1.0`) is created and pushed
-5. **Release Build**: The `release.yaml` workflow builds artifacts for Linux, macOS, and Windows
+5. **Release Build**: Artifacts are built for Linux, macOS, and Windows
 6. **GitHub Release**: A release is created with artifacts, checksums, and changelog notes
 
 ### CI Validation
