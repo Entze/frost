@@ -360,31 +360,20 @@ fn createSharedLibrary(
     return lib;
 }
 
-/// Defines supported target triples for release builds.
-///
-/// Returns:
-/// - Array of BuildTarget structs for cross-compilation
-///
-/// Preconditions:
-/// - None
-///
-/// Postconditions:
-/// - Returns valid target configurations compatible with Zig's target system
-fn getSupportedTargets() []const BuildTarget {
-    return &[_]BuildTarget{
-        // Linux targets
-        .{ .os = .linux, .arch = .x86_64, .abi = .musl },
-        .{ .os = .linux, .arch = .x86_64, .abi = .gnu },
-        .{ .os = .linux, .arch = .aarch64, .abi = .musl },
-        .{ .os = .linux, .arch = .aarch64, .abi = .gnu },
-        // macOS targets
-        .{ .os = .macos, .arch = .x86_64, .abi = .none },
-        .{ .os = .macos, .arch = .aarch64, .abi = .none },
-        // Windows targets
-        .{ .os = .windows, .arch = .x86_64, .abi = .gnu },
-        .{ .os = .windows, .arch = .aarch64, .abi = .gnu },
-    };
-}
+/// Supported target triples for release builds.
+const SUPPORTED_TARGETS = [_]BuildTarget{
+    // Linux targets
+    .{ .os = .linux, .arch = .x86_64, .abi = .musl },
+    .{ .os = .linux, .arch = .x86_64, .abi = .gnu },
+    .{ .os = .linux, .arch = .aarch64, .abi = .musl },
+    .{ .os = .linux, .arch = .aarch64, .abi = .gnu },
+    // macOS targets
+    .{ .os = .macos, .arch = .x86_64, .abi = .none },
+    .{ .os = .macos, .arch = .aarch64, .abi = .none },
+    // Windows targets
+    .{ .os = .windows, .arch = .x86_64, .abi = .gnu },
+    .{ .os = .windows, .arch = .aarch64, .abi = .gnu },
+};
 
 pub fn build(b: *std.Build) void {
     // Standard target and optimization options
@@ -447,8 +436,7 @@ pub fn build(b: *std.Build) void {
 
     const release_step = b.step("release", "Build for all supported target platforms");
 
-    const supported_targets = getSupportedTargets();
-    for (supported_targets) |build_target| {
+    for (SUPPORTED_TARGETS) |build_target| {
         const query_str = build_target.toQueryString(b.allocator) catch @panic("Failed to allocate memory for target query string");
         defer b.allocator.free(query_str);
 

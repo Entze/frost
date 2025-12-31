@@ -1,0 +1,5 @@
+PATCH
+- Reworked build.zig to expose explicit build steps with target-specific naming
+- Added BuildTarget struct and ArtifactExtension enum for type safety
+- Implemented multi-target release builds for 8 platforms
+- Added comprehensive tests for formatTargetName including OOM handling
