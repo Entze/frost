@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+#MISE description="Build static library"
+set -euo pipefail
+
+# Parse command-line options
+PROFILE=""
+TARGET=""
+CPU=""
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --profile)
+      PROFILE="$2"
+      shift 2
+      ;;
+    --target)
+      TARGET="$2"
+      shift 2
+      ;;
+    --cpu)
+      CPU="$2"
+      shift 2
+      ;;
+    *)
+      echo "Unknown option: $1"
+      echo "Usage: mise run build:lib-static [--profile <mode>] [--target <triple>] [--cpu <features>]"
+      exit 1
+      ;;
+  esac
+done
+
+# Build the command with optional arguments
+CMD="zig build lib-static"
+
+if [ -n "$PROFILE" ]; then
+  CMD="$CMD -Doptimize=$PROFILE"
+fi
+
+if [ -n "$TARGET" ]; then
+  CMD="$CMD -Dtarget=$TARGET"
+fi
+
+if [ -n "$CPU" ]; then
+  CMD="$CMD -Dcpu=$CPU"
+fi
+
+# Execute the command
+eval "$CMD"
