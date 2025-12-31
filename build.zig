@@ -73,7 +73,7 @@ fn createExecutable(
         "frost",
         target,
         null,
-    ) catch @panic("OOM");
+    ) catch @panic("Failed to allocate memory for executable name");
 
     const exe = b.addExecutable(.{
         .name = exe_name,
@@ -115,7 +115,7 @@ fn createStaticLibrary(
         "frost",
         target,
         null,
-    ) catch @panic("OOM");
+    ) catch @panic("Failed to allocate memory for static library name");
 
     const lib = b.addLibrary(.{
         .linkage = .static,
@@ -155,7 +155,7 @@ fn createSharedLibrary(
         "frost",
         target,
         null,
-    ) catch @panic("OOM");
+    ) catch @panic("Failed to allocate memory for shared library name");
 
     const lib = b.addLibrary(.{
         .linkage = .dynamic,
@@ -260,8 +260,7 @@ pub fn build(b: *std.Build) void {
     const supported_targets = getSupportedTargets();
     for (supported_targets) |target_query_str| {
         const query = std.Target.Query.parse(.{ .arch_os_abi = target_query_str }) catch |err| {
-            std.debug.print("Failed to parse target '{s}': {}\n", .{ target_query_str, err });
-            continue;
+            std.debug.panic("Invalid hardcoded target '{s}': {}\n", .{ target_query_str, err });
         };
 
         const release_target = b.resolveTargetQuery(query);
