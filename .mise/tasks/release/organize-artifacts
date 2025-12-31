@@ -4,4 +4,4 @@ set -euo pipefail
 
 mkdir --parents release-artifacts
 find artifacts -type f -exec cp --verbose {} release-artifacts/ \;
-ls --all --long --human-readable release-artifacts/
+ls --all -l --human-readable release-artifacts/
