@@ -29,7 +29,7 @@ const BuildTarget = struct {
     }
 };
 
-/// File extension for artifacts based on the target platform.
+/// File extension for artifacts across different target platforms.
 const ArtifactExtension = union(enum) {
     none,
     exe,
@@ -449,9 +449,7 @@ pub fn build(b: *std.Build) void {
 
     const supported_targets = getSupportedTargets();
     for (supported_targets) |build_target| {
-        const query_str = build_target.toQueryString(b.allocator) catch |err| {
-            std.debug.panic("Failed to create query string for target: {}\n", .{err});
-        };
+        const query_str = build_target.toQueryString(b.allocator) catch @panic("Failed to allocate memory for target query string");
         defer b.allocator.free(query_str);
 
         const query = std.Target.Query.parse(.{ .arch_os_abi = query_str }) catch |err| {
