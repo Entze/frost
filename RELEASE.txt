@@ -1,3 +1,0 @@
-PATCH
-- Merged release.yaml into cd.yaml to fix workflow triggering issue
-- Fixed GitHub Actions workflow triggering limitations
