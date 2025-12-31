@@ -1,156 +1,294 @@
 const std = @import("std");
 
-// Although this function looks imperative, it does not perform the build
-// directly and instead it mutates the build graph (`b`) that will be then
-// executed by an external runner. The functions in `std.Build` implement a DSL
-// for defining build steps and express dependencies between them, allowing the
-// build runner to parallelize the build automatically (and the cache system to
-// know when a step doesn't need to be re-run).
-pub fn build(b: *std.Build) void {
-    // Standard target options allow the person running `zig build` to choose
-    // what target to build for. Here we do not override the defaults, which
-    // means any target is allowed, and the default is native. Other options
-    // for restricting supported target set are available.
-    const target = b.standardTargetOptions(.{});
-    // Standard optimization options allow the person running `zig build` to select
-    // between Debug, ReleaseSafe, ReleaseFast, and ReleaseSmall. Here we do not
-    // set a preferred release mode, allowing the user to decide how to optimize.
-    const optimize = b.standardOptimizeOption(.{});
-    // It's also possible to define more custom flags to toggle optional features
-    // of this build script using `b.option()`. All defined flags (including
-    // target and optimize options) will be listed when running `zig build --help`
-    // in this directory.
+/// Generates a target-specific artifact name in the format: {base}-{os}-{arch}[-{abi}][.ext]
+///
+/// Parameters:
+/// - allocator: Allocator for string formatting (borrowed)
+/// - base_name: Base name of the artifact without extension (borrowed)
+/// - target: Resolved build target containing OS, CPU architecture, and ABI info (borrowed)
+/// - extension: Optional file extension (e.g., "exe" for Windows), can be null (borrowed)
+///
+/// Returns:
+/// - Formatted string with target-specific name (caller owns memory)
+///
+/// Preconditions:
+/// - base_name must be non-empty
+/// - target must be valid and resolved
+///
+/// Ownership:
+/// - Caller owns returned string and must free it
+fn formatTargetName(
+    allocator: std.mem.Allocator,
+    base_name: []const u8,
+    target: std.Build.ResolvedTarget,
+    extension: ?[]const u8,
+) ![]const u8 {
+    std.debug.assert(base_name.len > 0);
 
-    // This creates a module, which represents a collection of source files alongside
-    // some compilation options, such as optimization mode and linked system libraries.
-    // Zig modules are the preferred way of making Zig code available to consumers.
-    // addModule defines a module that we intend to make available for importing
-    // to our consumers. We must give it a name because a Zig package can expose
-    // multiple modules and consumers will need to be able to specify which
-    // module they want to access.
-    const mod = b.addModule("frost", .{
-        // The root source file is the "entry point" of this module. Users of
-        // this module will only be able to access public declarations contained
-        // in this file, which means that if you have declarations that you
-        // intend to expose to consumers that were defined in other files part
-        // of this module, you will have to make sure to re-export them from
-        // the root file.
-        .root_source_file = b.path("src/root.zig"),
-        // Later on we'll use this module as the root module of a test executable
-        // which requires us to specify a target.
-        .target = target,
-    });
+    const os_tag = @tagName(target.result.os.tag);
+    const arch_tag = @tagName(target.result.cpu.arch);
+    const abi_tag = @tagName(target.result.abi);
 
-    // Here we define an executable. An executable needs to have a root module
-    // which needs to expose a `main` function. While we could add a main function
-    // to the module defined above, it's sometimes preferable to split business
-    // logic and the CLI into two separate modules.
-    //
-    // If your goal is to create a Zig library for others to use, consider if
-    // it might benefit from also exposing a CLI tool. A parser library for a
-    // data serialization format could also bundle a CLI syntax checker, for example.
-    //
-    // If instead your goal is to create an executable, consider if users might
-    // be interested in also being able to embed the core functionality of your
-    // program in their own executable in order to avoid the overhead involved in
-    // subprocessing your CLI tool.
-    //
-    // If neither case applies to you, feel free to delete the declaration you
-    // don't need and to put everything under a single module.
+    // Include ABI in name only if it's not "none"
+    const name_with_target = if (!std.mem.eql(u8, abi_tag, "none"))
+        try std.fmt.allocPrint(allocator, "{s}-{s}-{s}-{s}", .{ base_name, os_tag, arch_tag, abi_tag })
+    else
+        try std.fmt.allocPrint(allocator, "{s}-{s}-{s}", .{ base_name, os_tag, arch_tag });
+
+    defer allocator.free(name_with_target);
+
+    // Add extension if provided
+    if (extension) |ext| {
+        return std.fmt.allocPrint(allocator, "{s}.{s}", .{ name_with_target, ext });
+    }
+
+    return allocator.dupe(u8, name_with_target);
+}
+
+/// Creates an executable artifact with target-specific naming.
+///
+/// Parameters:
+/// - b: Build context pointer (borrowed)
+/// - mod: Frost module to import (borrowed)
+/// - target: Compilation target
+/// - optimize: Optimization mode
+///
+/// Returns:
+/// - Configured executable artifact
+///
+/// Preconditions:
+/// - mod must be initialized with valid root source file
+/// - target must be valid compilation target
+///
+/// Ownership:
+/// - Returned artifact is owned by the build graph
+fn createExecutable(
+    b: *std.Build,
+    mod: *std.Build.Module,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+) *std.Build.Step.Compile {
+    const exe_name = formatTargetName(
+        b.allocator,
+        "frost",
+        target,
+        null,
+    ) catch @panic("OOM");
+
     const exe = b.addExecutable(.{
-        .name = "frost",
+        .name = exe_name,
         .root_module = b.createModule(.{
-            // b.createModule defines a new module just like b.addModule but,
-            // unlike b.addModule, it does not expose the module to consumers of
-            // this package, which is why in this case we don't have to give it a name.
             .root_source_file = b.path("src/main.zig"),
-            // Target and optimization levels must be explicitly wired in when
-            // defining an executable or library (in the root module), and you
-            // can also hardcode a specific target for an executable or library
-            // definition if desireable (e.g. firmware for embedded devices).
             .target = target,
             .optimize = optimize,
-            // List of modules available for import in source files part of the
-            // root module.
             .imports = &.{
-                // Here "frost" is the name you will use in your source code to
-                // import this module (e.g. `@import("frost")`). The name is
-                // repeated because you are allowed to rename your imports, which
-                // can be extremely useful in case of collisions (which can happen
-                // importing modules from different packages).
                 .{ .name = "frost", .module = mod },
             },
         }),
     });
 
-    // This declares intent for the executable to be installed into the
-    // install prefix when running `zig build` (i.e. when executing the default
-    // step). By default the install prefix is `zig-out/` but can be overridden
-    // by passing `--prefix` or `-p`.
+    return exe;
+}
+
+/// Creates a static library artifact with target-specific naming.
+///
+/// Parameters:
+/// - b: Build context pointer (borrowed)
+/// - target: Compilation target
+/// - optimize: Optimization mode
+///
+/// Returns:
+/// - Configured static library artifact
+///
+/// Preconditions:
+/// - target must be valid compilation target
+///
+/// Ownership:
+/// - Returned artifact is owned by the build graph
+fn createStaticLibrary(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+) *std.Build.Step.Compile {
+    const lib_name = formatTargetName(
+        b.allocator,
+        "frost",
+        target,
+        null,
+    ) catch @panic("OOM");
+
+    const lib = b.addLibrary(.{
+        .linkage = .static,
+        .name = lib_name,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/root.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+
+    return lib;
+}
+
+/// Creates a dynamic/shared library artifact with target-specific naming.
+///
+/// Parameters:
+/// - b: Build context pointer (borrowed)
+/// - target: Compilation target
+/// - optimize: Optimization mode
+///
+/// Returns:
+/// - Configured shared library artifact
+///
+/// Preconditions:
+/// - target must be valid compilation target
+///
+/// Ownership:
+/// - Returned artifact is owned by the build graph
+fn createSharedLibrary(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+) *std.Build.Step.Compile {
+    const lib_name = formatTargetName(
+        b.allocator,
+        "frost",
+        target,
+        null,
+    ) catch @panic("OOM");
+
+    const lib = b.addLibrary(.{
+        .linkage = .dynamic,
+        .name = lib_name,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/root.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+
+    return lib;
+}
+
+/// Defines supported target triples for release builds.
+///
+/// Returns:
+/// - Array of target query strings for cross-compilation
+///
+/// Preconditions:
+/// - None
+///
+/// Postconditions:
+/// - Returns valid target triple strings compatible with Zig's target system
+fn getSupportedTargets() []const []const u8 {
+    return &[_][]const u8{
+        // Linux targets
+        "x86_64-linux-musl",
+        "x86_64-linux-gnu",
+        "aarch64-linux-musl",
+        "aarch64-linux-gnu",
+        // macOS targets
+        "x86_64-macos",
+        "aarch64-macos",
+        // Windows targets
+        "x86_64-windows-gnu",
+        "aarch64-windows-gnu",
+    };
+}
+
+pub fn build(b: *std.Build) void {
+    // Standard target and optimization options
+    const target = b.standardTargetOptions(.{});
+    const optimize = b.standardOptimizeOption(.{});
+
+    // Create the frost module
+    const mod = b.addModule("frost", .{
+        .root_source_file = b.path("src/root.zig"),
+        .target = target,
+    });
+
+    // Step 1: exe - Build executable (default step)
+    const exe = createExecutable(b, mod, target, optimize);
     b.installArtifact(exe);
 
-    // This creates a top level step. Top level steps have a name and can be
-    // invoked by name when running `zig build` (e.g. `zig build run`).
-    // This will evaluate the `run` step rather than the default step.
-    // For a top level step to actually do something, it must depend on other
-    // steps (e.g. a Run step, as we will see in a moment).
-    const run_step = b.step("run", "Run the app");
+    // Create exe step (explicitly callable)
+    const exe_step = b.step("exe", "Build the executable");
+    const install_exe = b.addInstallArtifact(exe, .{});
+    exe_step.dependOn(&install_exe.step);
 
-    // This creates a RunArtifact step in the build graph. A RunArtifact step
-    // invokes an executable compiled by Zig. Steps will only be executed by the
-    // runner if invoked directly by the user (in the case of top level steps)
-    // or if another step depends on it, so it's up to you to define when and
-    // how this Run step will be executed. In our case we want to run it when
-    // the user runs `zig build run`, so we create a dependency link.
-    const run_cmd = b.addRunArtifact(exe);
-    run_step.dependOn(&run_cmd.step);
+    // Step 2: lib-static - Build static library
+    const lib_static = createStaticLibrary(b, target, optimize);
+    const lib_static_step = b.step("lib-static", "Build static library");
+    const install_lib_static = b.addInstallArtifact(lib_static, .{});
+    lib_static_step.dependOn(&install_lib_static.step);
 
-    // By making the run step depend on the default step, it will be run from the
-    // installation directory rather than directly from within the cache directory.
-    run_cmd.step.dependOn(b.getInstallStep());
+    // Step 3: lib-dynamic - Build dynamic/shared library
+    const lib_dynamic = createSharedLibrary(b, target, optimize);
+    const lib_dynamic_step = b.step("lib-dynamic", "Build dynamic/shared library");
+    const install_lib_dynamic = b.addInstallArtifact(lib_dynamic, .{});
+    lib_dynamic_step.dependOn(&install_lib_dynamic.step);
 
-    // This allows the user to pass arguments to the application in the build
-    // command itself, like this: `zig build run -- arg1 arg2 etc`
-    if (b.args) |args| {
-        run_cmd.addArgs(args);
-    }
+    // Step 4: docs - Documentation generation (not yet implemented)
+    const docs_step = b.step("docs", "Generate documentation");
+    const docs_fail = b.addFail("Documentation generation not yet implemented");
+    docs_step.dependOn(&docs_fail.step);
 
-    // Creates an executable that will run `test` blocks from the provided module.
-    // Here `mod` needs to define a target, which is why earlier we made sure to
-    // set the releative field.
+    // Step 5: test - Run all tests
     const mod_tests = b.addTest(.{
         .root_module = mod,
     });
-
-    // A run step that will run the test executable.
     const run_mod_tests = b.addRunArtifact(mod_tests);
 
-    // Creates an executable that will run `test` blocks from the executable's
-    // root module. Note that test executables only test one module at a time,
-    // hence why we have to create two separate ones.
     const exe_tests = b.addTest(.{
         .root_module = exe.root_module,
     });
-
-    // A run step that will run the second test executable.
     const run_exe_tests = b.addRunArtifact(exe_tests);
 
-    // A top level step for running all tests. dependOn can be called multiple
-    // times and since the two run steps do not depend on one another, this will
-    // make the two of them run in parallel.
     const test_step = b.step("test", "Run tests");
     test_step.dependOn(&run_mod_tests.step);
     test_step.dependOn(&run_exe_tests.step);
 
-    // Just like flags, top level steps are also listed in the `--help` menu.
-    //
-    // The Zig build system is entirely implemented in userland, which means
-    // that it cannot hook into private compiler APIs. All compilation work
-    // orchestrated by the build system will result in other Zig compiler
-    // subcommands being invoked with the right flags defined. You can observe
-    // these invocations when one fails (or you pass a flag to increase
-    // verbosity) to validate assumptions and diagnose problems.
-    //
-    // Lastly, the Zig build system is relatively simple and self-contained,
-    // and reading its source code will allow you to master it.
+    // Step 6: release - Build for all supported targets
+    const release_profile = b.option(
+        std.builtin.OptimizeMode,
+        "release-profile",
+        "Optimization profile for release builds (default: ReleaseFast)",
+    ) orelse .ReleaseFast;
+
+    const release_step = b.step("release", "Build for all supported target platforms");
+
+    const supported_targets = getSupportedTargets();
+    for (supported_targets) |target_query_str| {
+        const query = std.Target.Query.parse(.{ .arch_os_abi = target_query_str }) catch |err| {
+            std.debug.print("Failed to parse target '{s}': {}\n", .{ target_query_str, err });
+            continue;
+        };
+
+        const release_target = b.resolveTargetQuery(query);
+
+        // Build executable for this target
+        const release_exe = createExecutable(b, mod, release_target, release_profile);
+        const install_release_exe = b.addInstallArtifact(release_exe, .{});
+        release_step.dependOn(&install_release_exe.step);
+
+        // Build static library for this target
+        const release_lib_static = createStaticLibrary(b, release_target, release_profile);
+        const install_release_lib_static = b.addInstallArtifact(release_lib_static, .{});
+        release_step.dependOn(&install_release_lib_static.step);
+
+        // Build dynamic library for this target
+        const release_lib_dynamic = createSharedLibrary(b, release_target, release_profile);
+        const install_release_lib_dynamic = b.addInstallArtifact(release_lib_dynamic, .{});
+        release_step.dependOn(&install_release_lib_dynamic.step);
+    }
+
+    // Existing run step
+    const run_step = b.step("run", "Run the app");
+    const run_cmd = b.addRunArtifact(exe);
+    run_step.dependOn(&run_cmd.step);
+    run_cmd.step.dependOn(b.getInstallStep());
+
+    if (b.args) |args| {
+        run_cmd.addArgs(args);
+    }
 }
