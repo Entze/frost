@@ -58,14 +58,68 @@ const frost = @import("frost");
 
 ### Building
 
+Build the executable:
+
 ```bash
-mise run build
+zig build              # Build for native target (default step)
+zig build exe          # Explicitly build executable
 ```
+
+Build libraries:
+
+```bash
+zig build lib-static   # Build static library
+zig build lib-dynamic  # Build dynamic/shared library
+```
+
+Build for release (multiple targets):
+
+```bash
+zig build release                           # Build for all supported targets (ReleaseFast)
+zig build release -Drelease-profile=Debug   # Use Debug profile
+```
+
+### Build Options
+
+Configure target and optimization:
+
+```bash
+zig build -Dtarget=x86_64-linux-musl -Doptimize=ReleaseSmall
+zig build -Dtarget=aarch64-macos -Doptimize=ReleaseFast
+```
+
+### Output Naming Convention
+
+Build artifacts include target information in their names:
+
+- **Executables**: `frost-{os}-{arch}[-{abi}][.exe]`
+  - Example: `frost-linux-x86_64-musl`, `frost-windows-aarch64-gnu.exe`
+
+- **Static Libraries**: `libfrost-{os}-{arch}[-{abi}].a` (or `.lib` on Windows)
+  - Example: `libfrost-linux-x86_64-gnu.a`, `frost-windows-x86_64-gnu.lib`
+
+- **Shared Libraries**: `libfrost-{os}-{arch}[-{abi}].so` (or `.dll`/`.dylib` per platform)
+  - Example: `libfrost-linux-aarch64-musl.so`, `libfrost-macos-aarch64.dylib`
+
+### Supported Release Targets
+
+The `release` step builds for these platforms:
+
+- **Linux**: x86_64 (musl/gnu), aarch64 (musl/gnu)
+- **macOS**: x86_64, aarch64
+- **Windows**: x86_64 (gnu), aarch64 (gnu)
 
 ### Testing
 
 ```bash
-mise run test
+zig build test         # Run all tests
+mise run test          # Alternative using mise
+```
+
+### Documentation
+
+```bash
+zig build docs         # (Not yet implemented)
 ```
 
 ### Formatting
