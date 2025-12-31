@@ -19,6 +19,8 @@ jobs:
 
       - uses: jdx/mise-action@v3
         with:
+          install: false
+          cache: false
           experimental: true
 
       - name: Check if RELEASE.txt exists
@@ -122,6 +124,8 @@ jobs:
 
       - uses: jdx/mise-action@v3
         with:
+          install: false
+          cache: false
           experimental: true
 
       - name: Download all artifacts
