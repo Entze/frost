@@ -1,3 +1,3 @@
-MINOR
+PATCH
 - Introduced GitHub Actions workflow instruction file for AI assistants
 - Added mise task instruction file documenting TOML and file-based patterns
