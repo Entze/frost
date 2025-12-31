@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+
+## 0.1.3 (2025-12-31)
+
+- Added Zig build system documentation guide
+
 ## 0.1.2 (2025-12-31)
 
 - Fixed mise-action configuration to explicitly disable install and cache for task-runner-only jobs
