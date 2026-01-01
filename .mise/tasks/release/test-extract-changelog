@@ -1,12 +1,9 @@
 #!/usr/bin/env bash
 #MISE description="Test that extract-changelog correctly extracts version sections"
+#MISE hide=true
 set -euo pipefail
 
 echo "Testing extract-changelog task..."
-
-# Get the project root using git
-project_root="$(git rev-parse --show-toplevel)"
-extract_changelog_script="$project_root/.mise/tasks/release/extract-changelog"
 
 # Create a test CHANGELOG.md
 test_dir=$(mktemp -d)
@@ -34,36 +31,35 @@ All notable changes to this project will be documented in this file.
 EOF
 
 # Test extraction of version 0.2.0
-cd "$test_dir"
 export GITHUB_REF="refs/tags/v0.2.0"
-bash "$extract_changelog_script" > output.txt
+mise run release:extract-changelog "$test_dir/CHANGELOG.md" > "$test_dir/output.txt"
 
 # Verify the output contains expected lines
-if grep -q "Added new feature X" output.txt && \
-   grep -q "Improved performance Y" output.txt && \
-   grep -q "Fixed bug Z" output.txt && \
-   ! grep -q "Another feature" output.txt; then
+if grep -q "Added new feature X" "$test_dir/output.txt" && \
+   grep -q "Improved performance Y" "$test_dir/output.txt" && \
+   grep -q "Fixed bug Z" "$test_dir/output.txt" && \
+   ! grep -q "Another feature" "$test_dir/output.txt"; then
   echo "✓ Test passed: Correctly extracted version 0.2.0"
 else
   echo "✗ Test failed: Incorrect extraction"
   echo "Output was:"
-  cat output.txt
+  cat "$test_dir/output.txt"
   exit 1
 fi
 
 # Test extraction of version 0.1.9
 export GITHUB_REF="refs/tags/v0.1.9"
-bash "$extract_changelog_script" > output.txt
+mise run release:extract-changelog "$test_dir/CHANGELOG.md" > "$test_dir/output.txt"
 
-if grep -q "Another feature" output.txt && \
-   grep -q "Another fix" output.txt && \
-   ! grep -q "Old feature" output.txt && \
-   ! grep -q "Added new feature X" output.txt; then
+if grep -q "Another feature" "$test_dir/output.txt" && \
+   grep -q "Another fix" "$test_dir/output.txt" && \
+   ! grep -q "Old feature" "$test_dir/output.txt" && \
+   ! grep -q "Added new feature X" "$test_dir/output.txt"; then
   echo "✓ Test passed: Correctly extracted version 0.1.9"
 else
   echo "✗ Test failed: Incorrect extraction"
   echo "Output was:"
-  cat output.txt
+  cat "$test_dir/output.txt"
   exit 1
 fi
 

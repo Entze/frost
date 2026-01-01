@@ -66,6 +66,15 @@ run = "zig test src/main.zig"
 [tasks."test:zig:pattern"]
 run = "zig test src/pattern.zig"
 
+[tasks."test:mise"]
+depends = ["test:mise:*"]
+
+[tasks."test:mise:release"]
+depends = ["test:mise:release:*"]
+
+[tasks."test:mise:release:extract-changelog"]
+run = "mise run release:test-extract-changelog"
+
 [tasks.check]
 usage = '''
 arg "[paths]" var=#true
