@@ -44,7 +44,7 @@ pub fn NoneOrOnce(comptime max_size: usize) type {
             // Delegate to wrapped pattern
             const pattern_match = self.pattern.match(input);
 
-            if (pattern_match.groups_matched == 0) {
+            if (pattern_match.bytes_consumed == 0) {
                 // Pattern failed to match - return zero-length match (NoneOrOnce always succeeds)
                 const result = Match(max_size).empty;
 
