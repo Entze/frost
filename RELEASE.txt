@@ -1,0 +1,5 @@
+PATCH
+- Added mise tasks for Zig build steps with configurable options
+- Introduced build:exe, build:lib-static, and build:lib-dynamic tasks
+- Added --optimize, --target, and --cpu flags with mise argument parsing
+- Improved build transparency with --summary all flag
