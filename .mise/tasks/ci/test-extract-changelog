@@ -4,6 +4,11 @@ set -euo pipefail
 
 echo "Testing extract-changelog task..."
 
+# Get the directory of the project root (parent of .mise/tasks/ci)
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+project_root="$(cd "$script_dir/../../.." && pwd)"
+extract_changelog_script="$project_root/.mise/tasks/release/extract-changelog"
+
 # Create a test CHANGELOG.md
 test_dir=$(mktemp -d)
 trap 'rm -rf "$test_dir"' EXIT
@@ -32,7 +37,7 @@ EOF
 # Test extraction of version 0.2.0
 cd "$test_dir"
 export GITHUB_REF="refs/tags/v0.2.0"
-bash /home/runner/work/frost/frost/.mise/tasks/release/extract-changelog > output.txt
+bash "$extract_changelog_script" > output.txt
 
 # Verify the output contains expected lines
 if grep -q "Added new feature X" output.txt && \
@@ -49,7 +54,7 @@ fi
 
 # Test extraction of version 0.1.9
 export GITHUB_REF="refs/tags/v0.1.9"
-bash /home/runner/work/frost/frost/.mise/tasks/release/extract-changelog > output.txt
+bash "$extract_changelog_script" > output.txt
 
 if grep -q "Another feature" output.txt && \
    grep -q "Another fix" output.txt && \
