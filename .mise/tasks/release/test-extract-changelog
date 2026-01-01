@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+#MISE description="Test that extract-changelog correctly extracts version sections"
+#MISE hide=true
+set -euo pipefail
+
+echo "Testing extract-changelog task..."
+
+# Create a test CHANGELOG.md
+test_dir=$(mktemp -d)
+trap 'rm -rf "$test_dir"' EXIT
+
+cat > "$test_dir/CHANGELOG.md" << 'EOF'
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+## 0.2.0 (2026-01-15)
+
+- Added new feature X
+- Improved performance Y
+- Fixed bug Z
+
+## 0.1.9 (2026-01-10)
+
+- Another feature
+- Another fix
+
+## 0.1.8 (2026-01-05)
+
+- Old feature
+EOF
+
+# Test extraction of version 0.2.0
+export GITHUB_REF="refs/tags/v0.2.0"
+mise run release:extract-changelog "$test_dir/CHANGELOG.md" > "$test_dir/output.txt"
+
+# Verify the output contains expected lines
+if grep -q "Added new feature X" "$test_dir/output.txt" && \
+   grep -q "Improved performance Y" "$test_dir/output.txt" && \
+   grep -q "Fixed bug Z" "$test_dir/output.txt" && \
+   ! grep -q "Another feature" "$test_dir/output.txt"; then
+  echo "✓ Test passed: Correctly extracted version 0.2.0"
+else
+  echo "✗ Test failed: Incorrect extraction"
+  echo "Output was:"
+  cat "$test_dir/output.txt"
+  exit 1
+fi
+
+# Test extraction of version 0.1.9
+export GITHUB_REF="refs/tags/v0.1.9"
+mise run release:extract-changelog "$test_dir/CHANGELOG.md" > "$test_dir/output.txt"
+
+if grep -q "Another feature" "$test_dir/output.txt" && \
+   grep -q "Another fix" "$test_dir/output.txt" && \
+   ! grep -q "Old feature" "$test_dir/output.txt" && \
+   ! grep -q "Added new feature X" "$test_dir/output.txt"; then
+  echo "✓ Test passed: Correctly extracted version 0.1.9"
+else
+  echo "✗ Test failed: Incorrect extraction"
+  echo "Output was:"
+  cat "$test_dir/output.txt"
+  exit 1
+fi
+
+echo "All tests passed!"
