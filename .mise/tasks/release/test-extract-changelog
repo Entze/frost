@@ -63,4 +63,36 @@ else
   exit 1
 fi
 
+# Test extraction with explicit version argument (simulating CI scenario)
+export GITHUB_REF="refs/heads/main"  # Simulate non-tag push
+export VERSION="0.2.0"
+mise run release:extract-changelog "$test_dir/CHANGELOG.md" > "$test_dir/output.txt"
+
+if grep -q "Added new feature X" "$test_dir/output.txt" && \
+   grep -q "Improved performance Y" "$test_dir/output.txt" && \
+   grep -q "Fixed bug Z" "$test_dir/output.txt" && \
+   ! grep -q "Another feature" "$test_dir/output.txt"; then
+  echo "✓ Test passed: Correctly extracted version 0.2.0 with explicit VERSION env var"
+else
+  echo "✗ Test failed: Incorrect extraction with explicit version"
+  echo "Output was:"
+  cat "$test_dir/output.txt"
+  exit 1
+fi
+
+# Test extraction with explicit version argument for 0.1.8
+export VERSION="0.1.8"
+mise run release:extract-changelog "$test_dir/CHANGELOG.md" > "$test_dir/output.txt"
+
+if grep -q "Old feature" "$test_dir/output.txt" && \
+   ! grep -q "Another feature" "$test_dir/output.txt" && \
+   ! grep -q "Added new feature X" "$test_dir/output.txt"; then
+  echo "✓ Test passed: Correctly extracted version 0.1.8 with explicit VERSION env var"
+else
+  echo "✗ Test failed: Incorrect extraction with explicit version for 0.1.8"
+  echo "Output was:"
+  cat "$test_dir/output.txt"
+  exit 1
+fi
+
 echo "All tests passed!"
