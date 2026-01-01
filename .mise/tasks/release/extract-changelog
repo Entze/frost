@@ -1,10 +1,29 @@
 #!/usr/bin/env bash
 #MISE description="Extract changelog section for the current release version"
-#USAGE arg "<changelog>" help="Path to CHANGELOG.md file" default="CHANGELOG.md"
 set -euo pipefail
 
-version="${GITHUB_REF#refs/tags/v}"
+# Get version from environment variable or GITHUB_REF
+# VERSION takes priority over GITHUB_REF for explicit control in CI workflows.
+#
+# In the CD workflow, when checking out a specific tag (e.g., ref: "v0.1.10"),
+# GITHUB_REF still reflects the original push event (refs/heads/main), not the
+# checked-out tag. Therefore, we require the version to be passed explicitly
+# via the VERSION environment variable in the workflow.
+#
+# The GITHUB_REF fallback is retained for local testing with tags.
+if [ -n "${VERSION:-}" ]; then
+  version="$VERSION"
+elif [ -n "${GITHUB_REF:-}" ]; then
+  version="${GITHUB_REF#refs/tags/v}"
+else
+  echo "Error: VERSION environment variable or GITHUB_REF must be set" >&2
+  exit 1
+fi
+
 echo "Extracting changelog for version $version"
+
+# Get changelog path from argument or use default
+changelog_path="${1:-CHANGELOG.md}"
 
 # Create temporary file for release notes
 temp_file=$(mktemp)
@@ -21,7 +40,7 @@ awk -v version="$version" '
   }
   found && /^## / { exit }
   found { print }
-' "${usage_changelog?}" > "$temp_file"
+' "$changelog_path" > "$temp_file"
 
 if [ ! -s "$temp_file" ]; then
   echo "Release v$version" > "$temp_file"

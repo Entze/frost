@@ -177,6 +177,8 @@ jobs:
 
       - name: Extract changelog for this version
         id: changelog
+        env:
+          VERSION: ${{ needs.release.outputs.version }}
         run: mise run release:extract-changelog
 
       - name: Create Release
