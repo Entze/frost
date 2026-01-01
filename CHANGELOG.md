@@ -12,6 +12,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+
+## 0.1.8 (2026-01-01)
+
+- Introduced automated documentation generation and GitHub Pages publishing
+- Implemented docs step in build.zig
+- Added CI job to verify documentation builds on pull requests
+- Added CD job to publish documentation to GitHub Pages on releases
+
 ## 0.1.7 (2026-01-01)
 
 - Refactored CD workflow to use cross-compilation instead of OS matrix
