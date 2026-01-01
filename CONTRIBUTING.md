@@ -43,13 +43,13 @@ Frost exposes Zig build steps as mise tasks with configurable options:
 mise run build:exe
 
 # Build with specific optimization profile
-mise run build:exe -- --profile ReleaseFast
+mise run build:exe -- --optimize ReleaseFast
 
 # Build for specific target
 mise run build:exe -- --target x86_64-linux-musl
 
 # Combine multiple options
-mise run build:exe -- --profile ReleaseSafe --target aarch64-macos
+mise run build:exe -- --optimize ReleaseSafe --target aarch64-macos
 ```
 
 #### Building Libraries
@@ -62,7 +62,7 @@ mise run build:lib-static
 mise run build:lib-dynamic
 
 # Build with custom options
-mise run build:lib-static -- --profile ReleaseFast --target x86_64-windows-gnu
+mise run build:lib-static -- --optimize ReleaseFast --target x86_64-windows-gnu
 ```
 
 #### Other Build Tasks
@@ -80,7 +80,7 @@ mise run release
 
 #### Build Options
 
-- `--profile <mode>`: Optimization profile
+- `--optimize <mode>`: Optimization profile
   - `Debug` (default)
   - `ReleaseSafe`
   - `ReleaseFast`

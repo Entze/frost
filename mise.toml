@@ -7,7 +7,8 @@ actionlint = "1.7.9"
 "pipx:bump-my-version" = "1.2.5"
 
 [tasks.build]
-run = "zig build"
+description = "Build all targets"
+depends = ["build:*"]
 
 [tasks."build:exe"]
 description = "Build the executable"
