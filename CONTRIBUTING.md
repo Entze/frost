@@ -32,6 +32,62 @@ Thank you for your interest in contributing to Frost! This document provides gui
    mise run test
    ```
 
+### Available Build Tasks
+
+Frost exposes Zig build steps as mise tasks with configurable options:
+
+#### Building Executables
+
+```bash
+# Build executable with default settings (Debug)
+mise run build:exe
+
+# Build with specific optimization profile
+mise run build:exe -- --optimize ReleaseFast
+
+# Build for specific target
+mise run build:exe -- --target x86_64-linux-musl
+
+# Combine multiple options
+mise run build:exe -- --optimize ReleaseSafe --target aarch64-macos
+```
+
+#### Building Libraries
+
+```bash
+# Build static library
+mise run build:lib-static
+
+# Build dynamic/shared library
+mise run build:lib-dynamic
+
+# Build with custom options
+mise run build:lib-static -- --optimize ReleaseFast --target x86_64-windows-gnu
+```
+
+#### Other Build Tasks
+
+```bash
+# Generate documentation (not yet implemented)
+mise run docs
+
+# Run all tests
+mise run test
+
+# Build release artifacts for all supported platforms
+mise run release
+```
+
+#### Build Options
+
+- `--optimize <mode>`: Optimization profile
+  - `Debug` (default)
+  - `ReleaseSafe`
+  - `ReleaseFast`
+  - `ReleaseSmall`
+- `--target <triple>`: Target platform (e.g., `x86_64-linux-musl`, `aarch64-macos`)
+- `--cpu <features>`: CPU feature flags
+
 ## Development Workflow
 
 ### Before Committing

@@ -63,6 +63,9 @@ Build the executable (output: `frost-{os}-{arch}[-{abi}]`):
 ```bash
 zig build              # Default: build and install executable
 zig build exe          # Explicitly build executable
+# or using mise
+mise run build:exe
+mise run build:exe -- --optimize ReleaseFast
 ```
 
 Build libraries (output: `libfrost-{os}-{arch}[-{abi}].{a|so|dylib}` or `frost-{os}-{arch}[-{abi}].{lib|dll}` on Windows):
@@ -70,6 +73,9 @@ Build libraries (output: `libfrost-{os}-{arch}[-{abi}].{a|so|dylib}` or `frost-{
 ```bash
 zig build lib-static   # Build static library
 zig build lib-dynamic  # Build dynamic/shared library
+# or using mise
+mise run build:lib-static
+mise run build:lib-dynamic
 ```
 
 Build for release (all supported targets: Linux x86_64/aarch64 musl/gnu, macOS x86_64/aarch64, Windows x86_64/aarch64 gnu):
@@ -77,13 +83,20 @@ Build for release (all supported targets: Linux x86_64/aarch64 musl/gnu, macOS x
 ```bash
 zig build release                           # Build for all supported targets (ReleaseFast)
 zig build release -Drelease-profile=Debug   # Use Debug profile
+# or using mise
+mise run release
 ```
 
 Configure target and optimization:
 
 ```bash
+# Using zig build directly
 zig build -Dtarget=x86_64-linux-musl -Doptimize=ReleaseSmall
 zig build -Dtarget=aarch64-macos -Doptimize=ReleaseFast
+
+# Using mise tasks with options
+mise run build:exe -- --optimize ReleaseSmall --target x86_64-linux-musl
+mise run build:lib-static -- --optimize ReleaseFast --target aarch64-macos
 ```
 
 ### Testing

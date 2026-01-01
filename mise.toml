@@ -7,7 +7,49 @@ actionlint = "1.7.9"
 "pipx:bump-my-version" = "1.2.5"
 
 [tasks.build]
-run = "zig build"
+description = "Build all targets"
+depends = ["build:*"]
+
+[tasks."build:exe"]
+description = "Build the executable"
+usage = '''
+flag "--optimize <mode>" help="Optimization profile" {
+  choices "Debug" "ReleaseSafe" "ReleaseFast" "ReleaseSmall"
+}
+flag "--target <triple>" help="Target platform"
+flag "--cpu <features>" help="CPU feature flags"
+'''
+run = "zig build exe --summary all{% if usage.optimize %} -Doptimize={{ usage.optimize }}{% endif %}{% if usage.target %} -Dtarget={{ usage.target }}{% endif %}{% if usage.cpu %} -Dcpu={{ usage.cpu }}{% endif %}"
+
+[tasks."build:lib-static"]
+description = "Build static library"
+usage = '''
+flag "--optimize <mode>" help="Optimization profile" {
+  choices "Debug" "ReleaseSafe" "ReleaseFast" "ReleaseSmall"
+}
+flag "--target <triple>" help="Target platform"
+flag "--cpu <features>" help="CPU feature flags"
+'''
+run = "zig build lib-static --summary all{% if usage.optimize %} -Doptimize={{ usage.optimize }}{% endif %}{% if usage.target %} -Dtarget={{ usage.target }}{% endif %}{% if usage.cpu %} -Dcpu={{ usage.cpu }}{% endif %}"
+
+[tasks."build:lib-dynamic"]
+description = "Build dynamic/shared library"
+usage = '''
+flag "--optimize <mode>" help="Optimization profile" {
+  choices "Debug" "ReleaseSafe" "ReleaseFast" "ReleaseSmall"
+}
+flag "--target <triple>" help="Target platform"
+flag "--cpu <features>" help="CPU feature flags"
+'''
+run = "zig build lib-dynamic --summary all{% if usage.optimize %} -Doptimize={{ usage.optimize }}{% endif %}{% if usage.target %} -Dtarget={{ usage.target }}{% endif %}{% if usage.cpu %} -Dcpu={{ usage.cpu }}{% endif %}"
+
+[tasks.docs]
+description = "Generate documentation"
+run = "zig build docs --summary all"
+
+[tasks.release]
+description = "Build for all supported target platforms"
+run = "zig build release --summary all"
 
 [tasks.test]
 depends = ["test:*"]

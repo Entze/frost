@@ -8,7 +8,7 @@
 zig-cache/
 .zig-out/
 zig-out/
-build/
+/build/
 build-*/
 docgen_tmp/
 
