@@ -14,6 +14,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+
+## 0.1.10 (2026-01-01)
+
+- Added ROADMAP.md documenting strategic direction and planned features
+- Added links to ROADMAP.md and CHANGELOG.md in CONTRIBUTING.md
+- Added links to ROADMAP.md and CHANGELOG.md in README.md
+
 ## 0.1.9 (2026-01-01)
 
 - Restructured README.md to focus on user-facing content
