@@ -98,9 +98,6 @@ Available options for build commands:
 ```bash
 # Generate documentation
 mise run docs
-
-# Run all tests
-mise run test
 ```
 
 ## Testing

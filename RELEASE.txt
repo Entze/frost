@@ -1,0 +1,5 @@
+PATCH
+- Restructured README.md to focus on user-facing content
+- Moved development workflows to CONTRIBUTING.md
+- Added comprehensive project description
+- Added Authors, Support, and Project Status sections
