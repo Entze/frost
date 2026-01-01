@@ -1,17 +1,14 @@
 #!/usr/bin/env bash
 #MISE description="Extract changelog section for the current release version"
-#MISE usage='arg "[changelog]" help="Path to CHANGELOG file" default="CHANGELOG.md"'
+#USAGE arg "<changelog>" help="Path to CHANGELOG.md file" default="CHANGELOG.md"
 set -euo pipefail
 
 version="${GITHUB_REF#refs/tags/v}"
 echo "Extracting changelog for version $version"
 
-# Get changelog file path from argument or default
-changelog_file="${1:-CHANGELOG.md}"
-
 # Create temporary file for release notes
 temp_file=$(mktemp)
-trap 'rm --force "$temp_file"' EXIT
+trap 'rm -f "$temp_file"' EXIT
 
 # Extract the section for this version from the specified changelog
 awk -v version="$version" '
@@ -24,7 +21,7 @@ awk -v version="$version" '
   }
   found && /^## / { exit }
   found { print }
-' "$changelog_file" > "$temp_file"
+' "${usage_changelog?}" > "$temp_file"
 
 if [ ! -s "$temp_file" ]; then
   echo "Release v$version" > "$temp_file"
