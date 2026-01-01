@@ -10,6 +10,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+
+## 0.1.6 (2026-01-01)
+
+- Added mise tasks for Zig build steps with configurable options
+- Introduced build:exe, build:lib-static, and build:lib-dynamic tasks
+- Added --optimize, --target, and --cpu flags with mise argument parsing
+- Improved build transparency with --summary all flag
+
 ## 0.1.5 (2025-12-31)
 
 - Introduced GitHub Actions workflow instruction file for AI assistants
