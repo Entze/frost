@@ -4,9 +4,8 @@ set -euo pipefail
 
 echo "Testing extract-changelog task..."
 
-# Get the directory of the project root (parent of .mise/tasks/ci)
-script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-project_root="$(cd "$script_dir/../../.." && pwd)"
+# Get the project root using git
+project_root="$(git rev-parse --show-toplevel)"
 extract_changelog_script="$project_root/.mise/tasks/release/extract-changelog"
 
 # Create a test CHANGELOG.md
