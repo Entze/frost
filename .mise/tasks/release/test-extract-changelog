@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 #MISE description="Test that extract-changelog correctly extracts version sections"
 #MISE hide=true
-#MISE shell="bash"
-#MISE run_windows="echo 'Warning: test-extract-changelog test cannot run on Windows (requires bash)' && exit 0"
 set -euo pipefail
 
 echo "Testing extract-changelog task..."
