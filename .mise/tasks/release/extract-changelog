@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 #MISE description="Extract changelog section for the current release version"
+#USAGE arg "<changelog>" help="Path to CHANGELOG.md file" default="CHANGELOG.md"
 set -euo pipefail
+
+# The #USAGE directive above is a mise-specific annotation that parses command-line arguments.
+# It makes the changelog path available as ${usage_changelog?} instead of using $1 directly,
+# providing better integration with mise's argument parsing and validation.
 
 # Get version from environment variable or GITHUB_REF
 # VERSION takes priority over GITHUB_REF for explicit control in CI workflows.
@@ -22,9 +27,6 @@ fi
 
 echo "Extracting changelog for version $version"
 
-# Get changelog path from argument or use default
-changelog_path="${1:-CHANGELOG.md}"
-
 # Create temporary file for release notes
 temp_file=$(mktemp)
 trap 'rm -f "$temp_file"' EXIT
@@ -40,7 +42,7 @@ awk -v version="$version" '
   }
   found && /^## / { exit }
   found { print }
-' "$changelog_path" > "$temp_file"
+' "${usage_changelog?}" > "$temp_file"
 
 if [ ! -s "$temp_file" ]; then
   echo "Release v$version" > "$temp_file"
