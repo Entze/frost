@@ -127,14 +127,14 @@ test "NoneOrOnce: nested NoneOrOnce patterns" {
     const char = P{ .character = Character(10){ .character = 'a' } };
     const inner = P{ .none_or_once = NoneOrOnce(10){ .pattern = &char } };
     const outer = NoneOrOnce(10){ .pattern = &inner };
-    
+
     const input1 = "abc";
     const result1 = outer.match(input1);
     // Should match 'a'
     try std.testing.expectEqual(@as(usize, 1), result1.bytes_consumed);
     try std.testing.expectEqual(@as(usize, 1), result1.groups_matched);
     try std.testing.expectEqualStrings("a", input1[result1.groups[0].begin..result1.groups[0].end]);
-    
+
     const input2 = "xyz";
     const result2 = outer.match(input2);
     // Should succeed with zero-length match (inner doesn't match, outer returns empty)
@@ -149,7 +149,7 @@ test "NoneOrOnce: with group pattern" {
     const char = P{ .character = Character(10){ .character = 'a' } };
     const group = P{ .group = Group(10){ .pattern = &char } };
     const none_or_once = NoneOrOnce(10){ .pattern = &group };
-    
+
     const input1 = "abc";
     const result1 = none_or_once.match(input1);
     // Should match 'a' with 2 groups (group 0 and group 1)
@@ -157,7 +157,7 @@ test "NoneOrOnce: with group pattern" {
     try std.testing.expectEqual(@as(usize, 2), result1.groups_matched);
     try std.testing.expectEqualStrings("a", input1[result1.groups[0].begin..result1.groups[0].end]);
     try std.testing.expectEqualStrings("a", input1[result1.groups[1].begin..result1.groups[1].end]);
-    
+
     const input2 = "xyz";
     const result2 = none_or_once.match(input2);
     // Should succeed with zero-length match
