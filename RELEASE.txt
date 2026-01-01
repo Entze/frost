@@ -1,3 +1,0 @@
-PATCH
-- Fixed changelog extraction in CD workflow to display correct release descriptions
-- Changed extract-changelog script to prioritize VERSION environment variable over GITHUB_REF

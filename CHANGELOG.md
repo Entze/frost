@@ -15,6 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+
+## 0.1.11 (2026-01-01)
+
+- Fixed changelog extraction in CD workflow to display correct release descriptions
+- Changed extract-changelog script to prioritize VERSION environment variable over GITHUB_REF
+
 ## 0.1.10 (2026-01-01)
 
 - Added ROADMAP.md documenting strategic direction and planned features
