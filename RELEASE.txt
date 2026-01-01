@@ -1,0 +1,4 @@
+PATCH
+- Added ROADMAP.md documenting strategic direction and planned features
+- Added links to ROADMAP.md and CHANGELOG.md in CONTRIBUTING.md
+- Added links to ROADMAP.md and CHANGELOG.md in README.md

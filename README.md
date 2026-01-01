@@ -78,3 +78,7 @@ Frost is under active development and currently in draft state. The API is evolv
 
 For information on contributing, please see [CONTRIBUTING.md](CONTRIBUTING.md).
 
+**Development Resources:**
+- [ROADMAP.md](ROADMAP.md) - Planned features and project direction
+- [CHANGELOG.md](CHANGELOG.md) - Release history and change log
+

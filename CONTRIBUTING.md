@@ -201,6 +201,11 @@ While Frost is pre-1.0.0, we use `MINOR` for significant changes and `PATCH` for
 6. **Add RELEASE.txt** if your changes should trigger a release
 7. **Write clear PR descriptions** explaining what and why
 
+## Project Documentation
+
+- **[ROADMAP.md](ROADMAP.md)** - Strategic direction and planned features
+- **[CHANGELOG.md](CHANGELOG.md)** - History of changes and releases
+
 ## Questions or Issues?
 
 If you have questions or run into issues:
