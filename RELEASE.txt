@@ -1,0 +1,5 @@
+PATCH
+- Introduced automated documentation generation and GitHub Pages publishing
+- Implemented docs step in build.zig
+- Added CI job to verify documentation builds on pull requests
+- Added CD job to publish documentation to GitHub Pages on releases

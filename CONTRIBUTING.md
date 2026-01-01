@@ -68,7 +68,7 @@ mise run build:lib-static -- --optimize ReleaseFast --target x86_64-windows-gnu
 #### Other Build Tasks
 
 ```bash
-# Generate documentation (not yet implemented)
+# Generate documentation
 mise run docs
 
 # Run all tests

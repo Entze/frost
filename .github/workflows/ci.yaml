@@ -40,6 +40,27 @@ jobs:
       - name: Run check
         run: mise run check --all
 
+  docs:
+    name: Build Documentation
+    needs: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - uses: jdx/mise-action@v3
+        with:
+          install: true
+          cache: true
+          experimental: true
+
+      - name: Build documentation
+        run: mise run docs
+
+      - name: Verify documentation output
+        run: test -f zig-out/docs/index.html
+
   build:
     name: Build
     needs: check
