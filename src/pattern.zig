@@ -1,12 +1,13 @@
 //! Pattern matching module for building lexer-parser pipelines.
 //!
-//! This module provides a Pattern type as a tagged union with six variants:
+//! This module provides a Pattern type as a tagged union with seven variants:
 //! - Wildcard: Matches any single character (regex `.`)
 //! - Character: Matches a specific single character
 //! - CharacterClass: Matches characters in a set (regex `[ ]`)
 //! - InvertedCharacterClass: Matches characters not in a set (regex `[^ ]`)
 //! - Concatenation: Matches sequential patterns
 //! - Group: Matches a subpattern and counts as a capture group (regex `(PATTERN)`)
+//! - NoneOrOnce: Matches a subpattern zero or one time (regex `PATTERN?`)
 //!
 //! All patterns are defined at compile time, allowing variants to use arrays for storage.
 
@@ -24,6 +25,7 @@ pub const invertedCharacterClass = @import("pattern/inverted_character_class.zig
 pub const Concatenation = @import("pattern/concatenation.zig").Concatenation;
 pub const concatenation = @import("pattern/concatenation.zig").concatenation;
 pub const Group = @import("pattern/group.zig").Group;
+pub const NoneOrOnce = @import("pattern/none_or_once.zig").NoneOrOnce;
 
 /// Pattern tagged union containing all pattern variants.
 ///
@@ -42,6 +44,7 @@ pub fn Pattern(comptime max_size: usize) type {
         inverted_character_class: InvertedCharacterClass(max_size),
         concatenation: Concatenation(max_size),
         group: Group(max_size),
+        none_or_once: NoneOrOnce(max_size),
 
         const Self = @This();
 
@@ -69,6 +72,7 @@ pub fn Pattern(comptime max_size: usize) type {
                 .inverted_character_class => |icc| icc.match(input),
                 .concatenation => |cat| cat.match(input),
                 .group => |g| g.match(input),
+                .none_or_once => |noo| noo.match(input),
             };
         }
     };
@@ -232,6 +236,60 @@ test "Pattern: nested group variant" {
     try std.testing.expectEqual(@as(usize, 0), result2.bytes_consumed);
 }
 
+test "Pattern: none_or_once variant with matching character" {
+    const P = Pattern(10);
+    const char = P{ .character = Character(10){ .character = 'a' } };
+    const pattern = P{ .none_or_once = NoneOrOnce(10){ .pattern = &char } };
+
+    const input1 = "abc";
+    const result1 = pattern.match(input1);
+    try std.testing.expectEqual(@as(usize, 1), result1.bytes_consumed);
+    try std.testing.expectEqual(@as(usize, 1), result1.groups_matched);
+    try std.testing.expectEqualStrings("a", input1[result1.groups[0].begin..result1.groups[0].end]);
+
+    const input2 = "bcd";
+    const result2 = pattern.match(input2);
+    try std.testing.expectEqual(@as(usize, 0), result2.bytes_consumed);
+    try std.testing.expectEqual(@as(usize, 0), result2.groups_matched);
+}
+
+test "Pattern: none_or_once variant with group" {
+    const P = Pattern(10);
+    const char = P{ .character = Character(10){ .character = 'x' } };
+    const group = P{ .group = Group(10){ .pattern = &char } };
+    const pattern = P{ .none_or_once = NoneOrOnce(10){ .pattern = &group } };
+
+    const input1 = "xyz";
+    const result1 = pattern.match(input1);
+    try std.testing.expectEqual(@as(usize, 1), result1.bytes_consumed);
+    try std.testing.expectEqual(@as(usize, 2), result1.groups_matched);
+    try std.testing.expectEqualStrings("x", input1[result1.groups[0].begin..result1.groups[0].end]);
+    try std.testing.expectEqualStrings("x", input1[result1.groups[1].begin..result1.groups[1].end]);
+
+    const input2 = "abc";
+    const result2 = pattern.match(input2);
+    try std.testing.expectEqual(@as(usize, 0), result2.bytes_consumed);
+    try std.testing.expectEqual(@as(usize, 0), result2.groups_matched);
+}
+
+test "Pattern: nested none_or_once variant" {
+    const P = Pattern(10);
+    const char = P{ .character = Character(10){ .character = 'a' } };
+    const inner = P{ .none_or_once = NoneOrOnce(10){ .pattern = &char } };
+    const pattern = P{ .none_or_once = NoneOrOnce(10){ .pattern = &inner } };
+
+    const input1 = "abc";
+    const result1 = pattern.match(input1);
+    try std.testing.expectEqual(@as(usize, 1), result1.bytes_consumed);
+    try std.testing.expectEqual(@as(usize, 1), result1.groups_matched);
+    try std.testing.expectEqualStrings("a", input1[result1.groups[0].begin..result1.groups[0].end]);
+
+    const input2 = "xyz";
+    const result2 = pattern.match(input2);
+    try std.testing.expectEqual(@as(usize, 0), result2.bytes_consumed);
+    try std.testing.expectEqual(@as(usize, 0), result2.groups_matched);
+}
+
 test "Pattern: ((abc)xyz) example - nested group in concatenation" {
     // Pattern: ((abc)xyz)
     // Group 0: ((abc)xyz) - the whole match
@@ -370,6 +428,11 @@ test "fuzz: Pattern union never panics" {
             const pattern6 = P{ .group = Group(10){ .pattern = &char_pattern } };
             const result6 = pattern6.match(input);
             try std.testing.expect(result6.bytes_consumed <= input.len);
+
+            // Test none_or_once variant
+            const pattern7 = P{ .none_or_once = NoneOrOnce(10){ .pattern = &char_pattern } };
+            const result7 = pattern7.match(input);
+            try std.testing.expect(result7.bytes_consumed <= input.len);
         }
     };
     try std.testing.fuzz(Context{}, Context.testOne, .{});
