@@ -407,10 +407,14 @@ pub fn build(b: *std.Build) void {
     const install_lib_dynamic = b.addInstallArtifact(lib_dynamic, .{});
     lib_dynamic_step.dependOn(&install_lib_dynamic.step);
 
-    // Step 4: docs - Documentation generation (not yet implemented)
+    // Step 4: docs - Documentation generation
     const docs_step = b.step("docs", "Generate documentation");
-    const docs_fail = b.addFail("Documentation generation not yet implemented");
-    docs_step.dependOn(&docs_fail.step);
+    const install_docs = b.addInstallDirectory(.{
+        .source_dir = lib_static.getEmittedDocs(),
+        .install_dir = .prefix,
+        .install_subdir = "docs",
+    });
+    docs_step.dependOn(&install_docs.step);
 
     // Step 5: test - Run all tests
     const mod_tests = b.addTest(.{
