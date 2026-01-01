@@ -32,53 +32,58 @@ Thank you for your interest in contributing to Frost! This document provides gui
    mise run test
    ```
 
-### Available Build Tasks
+## Building
 
-Frost exposes Zig build steps as mise tasks with configurable options:
+### Building Executables
 
-#### Building Executables
+Build the executable (output: `frost-{os}-{arch}[-{abi}]`):
 
 ```bash
-# Build executable with default settings (Debug)
+zig build              # Default: build and install executable
+zig build exe          # Explicitly build executable
+# or using mise
 mise run build:exe
-
-# Build with specific optimization profile
 mise run build:exe -- --optimize ReleaseFast
-
-# Build for specific target
-mise run build:exe -- --target x86_64-linux-musl
-
-# Combine multiple options
-mise run build:exe -- --optimize ReleaseSafe --target aarch64-macos
 ```
 
-#### Building Libraries
+Configure target and optimization:
 
 ```bash
-# Build static library
+# Using zig build directly
+zig build -Dtarget=x86_64-linux-musl -Doptimize=ReleaseSmall
+zig build -Dtarget=aarch64-macos -Doptimize=ReleaseFast
+
+# Using mise tasks with options
+mise run build:exe -- --optimize ReleaseSmall --target x86_64-linux-musl
+```
+
+### Building Libraries
+
+Build libraries (output: `libfrost-{os}-{arch}[-{abi}].{a|so|dylib}` or `frost-{os}-{arch}[-{abi}].{lib|dll}` on Windows):
+
+```bash
+zig build lib-static   # Build static library
+zig build lib-dynamic  # Build dynamic/shared library
+# or using mise
 mise run build:lib-static
-
-# Build dynamic/shared library
 mise run build:lib-dynamic
-
-# Build with custom options
-mise run build:lib-static -- --optimize ReleaseFast --target x86_64-windows-gnu
+mise run build:lib-static -- --optimize ReleaseFast --target aarch64-macos
 ```
 
-#### Other Build Tasks
+### Release Builds
+
+Build for release (all supported targets: Linux x86_64/aarch64 musl/gnu, macOS x86_64/aarch64, Windows x86_64/aarch64 gnu):
 
 ```bash
-# Generate documentation
-mise run docs
-
-# Run all tests
-mise run test
-
-# Build release artifacts for all supported platforms
+zig build release                           # Build for all supported targets (ReleaseFast)
+zig build release -Drelease-profile=Debug   # Use Debug profile
+# or using mise
 mise run release
 ```
 
-#### Build Options
+### Build Options
+
+Available options for build commands:
 
 - `--optimize <mode>`: Optimization profile
   - `Debug` (default)
@@ -88,11 +93,30 @@ mise run release
 - `--target <triple>`: Target platform (e.g., `x86_64-linux-musl`, `aarch64-macos`)
 - `--cpu <features>`: CPU feature flags
 
-## Development Workflow
+### Other Build Tasks
 
-### Before Committing
+```bash
+# Generate documentation
+mise run docs
 
-Always run these commands before committing:
+# Run all tests
+mise run test
+```
+
+## Testing
+
+Run the test suite:
+
+```bash
+zig build test         # Run all tests
+mise run test          # Alternative using mise
+```
+
+## Code Quality
+
+### Formatting and Checks
+
+Before committing, always run:
 
 ```bash
 # Run checks
