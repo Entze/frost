@@ -1,7 +1,0 @@
-PATCH
-- Refactored CD workflow to use cross-compilation instead of OS matrix
-- Consolidated build job from 3 OS runners to single ubuntu runner
-- Expanded platform support from 3 to 8 target configurations
-- Added test task hierarchy for better organization
-- Improved extract-changelog with optional changelog path argument
-- Fixed macOS compatibility in extract-changelog script

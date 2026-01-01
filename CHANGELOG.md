@@ -11,6 +11,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+
+## 0.1.7 (2026-01-01)
+
+- Refactored CD workflow to use cross-compilation instead of OS matrix
+- Consolidated build job from 3 OS runners to single ubuntu runner
+- Expanded platform support from 3 to 8 target configurations
+- Added test task hierarchy for better organization
+- Improved extract-changelog with optional changelog path argument
+- Fixed macOS compatibility in extract-changelog script
+
 ## 0.1.6 (2026-01-01)
 
 - Added mise tasks for Zig build steps with configurable options
