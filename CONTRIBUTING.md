@@ -109,6 +109,22 @@ zig build test         # Run all tests
 mise run test          # Alternative using mise
 ```
 
+### Incremental Testing with mise
+
+Mise tasks support incremental execution through `sources` and `outputs` metadata. When sources haven't changed, tasks are automatically skipped:
+
+```bash
+mise run test:zig:pattern  # First run: executes tests (625ms)
+mise run test:zig:pattern  # Second run: skipped (21ms) - 30x faster!
+```
+
+This dramatically speeds up development workflows. To force a fresh run, modify a source file or clear the cache:
+
+```bash
+touch src/pattern.zig       # Trigger rebuild for specific module
+rm -rf ~/.local/state/mise/task-auto-outputs/*  # Clear all caches
+```
+
 ## Code Quality
 
 ### Formatting and Checks
@@ -129,6 +145,75 @@ mise run fix --all
 - Use descriptive variable and function names
 - Write clear comments for complex logic
 - Ensure all tests pass before submitting
+
+## Mise Task Guidelines
+
+When creating or modifying mise tasks, follow these metadata standards:
+
+### Required Metadata
+
+All tasks must have:
+- **`description`** - Clear, concise explanation of what the task does
+
+### Optional Metadata (when applicable)
+
+Add these fields based on task functionality:
+
+- **`sources`** - Input files that trigger task re-execution when modified
+  - Use for: build tasks, test tasks, format/check tasks
+  - Example: `sources = ["src/**/*.zig", "build.zig"]`
+  - **Do not use** for tasks with dynamic input paths (via arguments)
+
+- **`outputs`** - Generated files that indicate task completion
+  - Use for: build tasks, documentation generation
+  - Example: `outputs = ["zig-out/bin/*"]`
+  - Mise auto-generates outputs for tasks with sources but no outputs
+
+- **`usage`** - CLI argument specification for parameterized tasks
+  - Use for: tasks accepting flags, options, or positional arguments
+  - Provides `--help` text and type-safe argument parsing
+  - Example:
+    ```toml
+    usage = '''
+    arg "[paths]" var=#true
+    flag "--all"
+    '''
+    ```
+
+### Task Caching Benefits
+
+Properly configured `sources` and `outputs` enable:
+- **Incremental builds** - Skip unchanged tasks automatically
+- **Faster iteration** - 10-30x speedup for cached tasks
+- **Smart rebuilds** - Only rerun when inputs actually change
+
+### Examples
+
+**TOML Task with Full Metadata:**
+```toml
+[tasks."build:exe"]
+description = "Build the executable"
+sources = ["src/**/*.zig", "build.zig", "build.zig.zon"]
+outputs = ["zig-out/bin/frost-*"]
+usage = '''
+flag "--optimize <mode>" help="Optimization profile" {
+  choices "Debug" "ReleaseSafe" "ReleaseFast" "ReleaseSmall"
+}
+'''
+run = "zig build exe --summary all{% if usage.optimize %} -Doptimize={{ usage.optimize }}{% endif %}"
+```
+
+**File Task with Metadata:**
+```bash
+#!/usr/bin/env bash
+#MISE description="Generate SHA256 checksums for all release artifacts"
+#MISE sources=["release-artifacts/*"]
+#MISE outputs=["release-artifacts/CHECKSUMS.txt"]
+set -euo pipefail
+# ... task implementation
+```
+
+See [.github/instructions/mise-task.instructions.md](.github/instructions/mise-task.instructions.md) for comprehensive documentation.
 
 ## Release Process
 
