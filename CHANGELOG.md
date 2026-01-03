@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.1.13 (2026-01-03)
+
+- Fixed whitespace accumulation in changelog-version-new script
+- Added regression test to prevent whitespace issues in changelog generation
+- Fixed macOS compatibility in release scripts (rm command portability)
+
 ## 0.1.12 (2026-01-03)
 
 Overhauled zig.instructions.md to be more coherent and hopefully more effective
