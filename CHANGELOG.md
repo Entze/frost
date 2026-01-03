@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+
+## 0.1.12 (2026-01-03)
+
+Overhauled zig.instructions.md to be more coherent and hopefully more effective
+
 ## 0.1.11 (2026-01-01)
 
 - Fixed changelog extraction in CD workflow to display correct release descriptions
