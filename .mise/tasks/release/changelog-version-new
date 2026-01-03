@@ -8,7 +8,7 @@ header="## $version ($date)"
 
 # Create temporary file
 temp_file=$(mktemp)
-trap 'rm --force "$temp_file"' EXIT
+trap 'rm -f "$temp_file"' EXIT
 
 # Insert new version header before the first ## heading (or at end if none exist)
 # This keeps the abstract before all version entries
