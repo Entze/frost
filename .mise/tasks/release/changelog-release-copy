@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 #MISE description="Copy release notes from RELEASE.txt to CHANGELOG.md"
+#MISE sources=["RELEASE.txt", "CHANGELOG.md"]
+#MISE outputs=["CHANGELOG.md"]
 set -euo pipefail
 
 # Create temporary files

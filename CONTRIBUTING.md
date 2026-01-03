@@ -109,6 +109,21 @@ zig build test         # Run all tests
 mise run test          # Alternative using mise
 ```
 
+### Incremental Testing with mise
+
+Mise tasks support incremental execution through `sources` and `outputs` metadata. When sources haven't changed, tasks are automatically skipped:
+
+```bash
+mise run test:zig:pattern  # First run: executes tests (625ms)
+mise run test:zig:pattern  # Second run: skipped (21ms) - 30x faster!
+```
+
+To force a fresh run, use the `--force` flag:
+
+```bash
+mise run --force test:zig:pattern  # Force re-execution
+```
+
 ## Code Quality
 
 ### Formatting and Checks
@@ -129,6 +144,34 @@ mise run fix --all
 - Use descriptive variable and function names
 - Write clear comments for complex logic
 - Ensure all tests pass before submitting
+
+## Mise Task Guidelines
+
+When creating or modifying mise tasks, follow these metadata standards. For comprehensive documentation on mise task configuration, see the [official mise task documentation](https://mise.jdx.dev/tasks/).
+
+### Required Metadata
+
+All tasks must have:
+- **`description`** - Clear, concise explanation of what the task does
+
+### Optional Metadata (when applicable)
+
+Add these fields based on task functionality:
+
+- **`sources`** - Input files that trigger task re-execution when modified
+  - Use for: build tasks, test tasks
+  - **Do not use** for tasks with dynamic input paths (via arguments)
+
+- **`outputs`** - Generated files that indicate task completion
+  - Use for: build tasks, documentation generation
+
+- **`usage`** - CLI argument specification for parameterized tasks
+  - Use for: tasks accepting flags, options, or positional arguments
+  - Provides `--help` text and type-safe argument parsing
+
+For detailed examples and advanced usage, see:
+- [Task configuration documentation](https://mise.jdx.dev/tasks/task-configuration.html)
+- [.github/instructions/mise-task.instructions.md](.github/instructions/mise-task.instructions.md)
 
 ## Release Process
 
