@@ -20,6 +20,8 @@ flag "--target <triple>" help="Target platform"
 flag "--cpu <features>" help="CPU feature flags"
 '''
 run = "zig build exe --summary all{% if usage.optimize %} -Doptimize={{ usage.optimize }}{% endif %}{% if usage.target %} -Dtarget={{ usage.target }}{% endif %}{% if usage.cpu %} -Dcpu={{ usage.cpu }}{% endif %}"
+sources = ["src/**/*.zig", "build.zig", "build.zig.zon"]
+outputs = ["zig-out/bin/frost-*"]
 
 [tasks."build:lib-static"]
 description = "Build static library"
@@ -31,6 +33,8 @@ flag "--target <triple>" help="Target platform"
 flag "--cpu <features>" help="CPU feature flags"
 '''
 run = "zig build lib-static --summary all{% if usage.optimize %} -Doptimize={{ usage.optimize }}{% endif %}{% if usage.target %} -Dtarget={{ usage.target }}{% endif %}{% if usage.cpu %} -Dcpu={{ usage.cpu }}{% endif %}"
+sources = ["src/**/*.zig", "build.zig", "build.zig.zon"]
+outputs = ["zig-out/lib/libfrost-*.a", "zig-out/lib/frost-*.lib"]
 
 [tasks."build:lib-dynamic"]
 description = "Build dynamic/shared library"
@@ -42,45 +46,76 @@ flag "--target <triple>" help="Target platform"
 flag "--cpu <features>" help="CPU feature flags"
 '''
 run = "zig build lib-dynamic --summary all{% if usage.optimize %} -Doptimize={{ usage.optimize }}{% endif %}{% if usage.target %} -Dtarget={{ usage.target }}{% endif %}{% if usage.cpu %} -Dcpu={{ usage.cpu }}{% endif %}"
+sources = ["src/**/*.zig", "build.zig", "build.zig.zon"]
+outputs = [
+  "zig-out/lib/libfrost-*.so",
+  "zig-out/lib/libfrost-*.dylib",
+  "zig-out/lib/frost-*.dll",
+]
 
 [tasks.docs]
 description = "Generate documentation"
 run = "zig build docs --summary all"
+sources = ["src/**/*.zig", "build.zig"]
+outputs = ["zig-out/docs/**/*"]
 
 [tasks.release]
 description = "Build for all supported target platforms"
 run = "zig build release --summary all"
+sources = ["src/**/*.zig", "build.zig", "build.zig.zon"]
+outputs = ["zig-out/frost-*"]
 
 [tasks.test]
+description = "Run all tests"
 depends = ["test:*"]
 
 [tasks."test:zig"]
+description = "Run all Zig tests"
 depends = ["test:zig:*"]
 
 [tasks."test:zig:root"]
+description = "Test the root module"
 run = "zig test src/root.zig"
+sources = ["src/root.zig"]
 
 [tasks."test:zig:main"]
+description = "Test the main module"
 run = "zig test src/main.zig"
+sources = ["src/main.zig"]
 
 [tasks."test:zig:pattern"]
+description = "Test the pattern module"
 run = "zig test src/pattern.zig"
+sources = ["src/pattern.zig"]
 
 [tasks."test:mise"]
+description = "Run all mise task tests"
 depends = ["test:mise:*"]
 
 [tasks."test:mise:release"]
+description = "Run release-related mise task tests"
 depends = ["test:mise:release:*"]
 
 [tasks."test:mise:release:extract-changelog"]
+description = "Test the extract-changelog task"
 run = "mise run release:test-extract-changelog"
 run_windows = "echo Warning: test-extract-changelog test cannot run on Windows (requires bash) && exit 0"
+sources = [
+  ".mise/tasks/release/extract-changelog",
+  ".mise/tasks/release/test-extract-changelog",
+]
 
 [tasks."test:mise:release:changelog-version-new"]
+description = "Test the changelog-version-new task"
 run = "mise run release:test-changelog-version-new"
 run_windows = "echo Warning: test-changelog-version-new test cannot run on Windows (requires bash) && exit 0"
+sources = [
+  ".mise/tasks/release/changelog-version-new",
+  ".mise/tasks/release/test-changelog-version-new",
+]
 
 [tasks.check]
+description = "Check code formatting and style"
 usage = '''
 arg "[paths]" var=#true
 flag "--all"
@@ -92,8 +127,10 @@ hk check --all
 hk check ${usage_paths}
 {% endif %}
 '''
+sources = ["src/**/*.zig", "build.zig"]
 
 [tasks.fix]
+description = "Fix code formatting and style issues"
 usage = '''
 arg "[paths]" var=#true
 flag "--all"
@@ -105,4 +142,5 @@ hk fix --all
 hk fix ${usage_paths}
 {% endif %}
 '''
+sources = ["src/**/*.zig", "build.zig"]
 

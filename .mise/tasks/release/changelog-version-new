@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 #MISE description="Insert new version header with current date into CHANGELOG.md"
+#MISE sources=["CHANGELOG.md", ".bumpversion.toml"]
+#MISE outputs=["CHANGELOG.md"]
 set -euo pipefail
 
 version=$(bump-my-version show current_version)

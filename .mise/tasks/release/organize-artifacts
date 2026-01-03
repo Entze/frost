@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 #MISE description="Organize downloaded artifacts into release-artifacts directory"
+#MISE sources=["artifacts/**/*"]
+#MISE outputs=["release-artifacts/*"]
 set -euo pipefail
 
 mkdir --parents release-artifacts

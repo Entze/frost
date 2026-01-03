@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 #MISE description="Validate RELEASE.txt format and content"
+#MISE sources=["RELEASE.txt"]
 set -euo pipefail
 
 if [ ! -f RELEASE.txt ]; then

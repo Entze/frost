@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 #MISE description="Delete RELEASE.txt file"
+#MISE sources=["RELEASE.txt"]
 set -euo pipefail
 
 rm --force RELEASE.txt
