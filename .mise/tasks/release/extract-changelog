@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 #MISE description="Extract changelog section for the current release version"
-#MISE sources=["CHANGELOG.md"]
-#MISE outputs=["release_notes.txt"]
 #USAGE arg "<changelog>" help="Path to CHANGELOG.md file" default="CHANGELOG.md"
 set -euo pipefail
 
