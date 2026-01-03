@@ -41,10 +41,10 @@ bash "$original_dir/.mise/tasks/release/changelog-version-new"
 # Count blank lines after the abstract (after line ending with "0.0.0.html).")
 blank_line_count=$(awk '
   /Semantic Versioning/ { in_gap = 1; line_after_abstract = NR; next }
-  in_gap && /^## / { 
+  in_gap && /^## / {
     # Calculate: current line - line after abstract - 1 (for the header line itself)
     print NR - line_after_abstract - 1
-    exit 
+    exit
   }
 ' CHANGELOG.md)
 
@@ -79,10 +79,10 @@ bash "$original_dir/.mise/tasks/release/changelog-version-new"
 # Count blank lines again
 blank_line_count=$(awk '
   /Semantic Versioning/ { in_gap = 1; line_after_abstract = NR; next }
-  in_gap && /^## / { 
+  in_gap && /^## / {
     # Calculate: current line - line after abstract - 1 (for the header line itself)
     print NR - line_after_abstract - 1
-    exit 
+    exit
   }
 ' CHANGELOG.md)
 
