@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+#MISE description="Test that changelog-version-new correctly manages whitespace"
+#MISE hide=true
+set -euo pipefail
+
+echo "Testing changelog-version-new task..."
+
+# Create a test directory
+test_dir=$(mktemp -d)
+trap 'rm -rf "$test_dir"' EXIT
+
+# Create a test CHANGELOG.md with abstract
+cat > "$test_dir/CHANGELOG.md" << 'EOF'
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.0 (2026-01-01)
+
+- Initial release
+EOF
+
+# Save original working directory and change to test directory
+original_dir=$(pwd)
+cd "$test_dir"
+
+# Create a .bumpversion.toml for the test
+cat > .bumpversion.toml << 'EOF'
+[tool.bumpversion]
+current_version = "0.1.1"
+EOF
+
+# Test: Insert new version header
+export PATH="$original_dir/.mise/tasks/release:$PATH"
+bash "$original_dir/.mise/tasks/release/changelog-version-new"
+
+# Verify whitespace: should have exactly 1 blank line between abstract and first version
+# Count blank lines after the abstract (after line ending with "0.0.0.html).")
+blank_line_count=$(awk '
+  /Semantic Versioning/ { in_gap = 1; line_after_abstract = NR; next }
+  in_gap && /^## / { 
+    # Calculate: current line - line after abstract - 1 (for the header line itself)
+    print NR - line_after_abstract - 1
+    exit 
+  }
+' CHANGELOG.md)
+
+if [ "$blank_line_count" -eq 1 ]; then
+  echo "✓ Test passed: Exactly 1 blank line between abstract and first version"
+else
+  echo "✗ Test failed: Expected 1 blank line, found $blank_line_count"
+  echo "CHANGELOG.md content:"
+  cat -A CHANGELOG.md
+  exit 1
+fi
+
+# Verify the new version header was inserted
+if grep -q "## 0.1.1 ($(date +%Y-%m-%d))" CHANGELOG.md; then
+  echo "✓ Test passed: New version header correctly inserted"
+else
+  echo "✗ Test failed: New version header not found"
+  echo "CHANGELOG.md content:"
+  cat CHANGELOG.md
+  exit 1
+fi
+
+# Test: Run again to verify whitespace doesn't accumulate
+# Update version in .bumpversion.toml
+cat > .bumpversion.toml << 'EOF'
+[tool.bumpversion]
+current_version = "0.1.2"
+EOF
+
+bash "$original_dir/.mise/tasks/release/changelog-version-new"
+
+# Count blank lines again
+blank_line_count=$(awk '
+  /Semantic Versioning/ { in_gap = 1; line_after_abstract = NR; next }
+  in_gap && /^## / { 
+    # Calculate: current line - line after abstract - 1 (for the header line itself)
+    print NR - line_after_abstract - 1
+    exit 
+  }
+' CHANGELOG.md)
+
+if [ "$blank_line_count" -eq 1 ]; then
+  echo "✓ Test passed: Whitespace doesn't accumulate after second run"
+else
+  echo "✗ Test failed: Expected 1 blank line after second run, found $blank_line_count"
+  echo "CHANGELOG.md content:"
+  cat -A CHANGELOG.md
+  exit 1
+fi
+
+cd "$original_dir"
+echo "All tests passed!"

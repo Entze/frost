@@ -76,6 +76,10 @@ depends = ["test:mise:release:*"]
 run = "mise run release:test-extract-changelog"
 run_windows = "echo Warning: test-extract-changelog test cannot run on Windows (requires bash) && exit 0"
 
+[tasks."test:mise:release:changelog-version-new"]
+run = "mise run release:test-changelog-version-new"
+run_windows = "echo Warning: test-changelog-version-new test cannot run on Windows (requires bash) && exit 0"
+
 [tasks.check]
 usage = '''
 arg "[paths]" var=#true
