@@ -8,20 +8,47 @@ header="## $version ($date)"
 
 # Create temporary file
 temp_file=$(mktemp)
-trap 'rm --force "$temp_file"' EXIT
+trap 'rm -f "$temp_file"' EXIT
 
 # Insert new version header before the first ## heading (or at end if none exist)
 # This keeps the abstract before all version entries
+# Strategy: Output all lines before first version header, ensuring exactly one blank line before headers
 awk -v header="$header" '
   !inserted && /^## / {
+    # We found the first version header
+    # Remove trailing blank lines from buffer, but keep track of count
+    trailing_blanks = 0
+    while (buffer_idx > 0 && buffer[buffer_idx] == "") {
+      buffer_idx--
+      trailing_blanks++
+    }
+    # Print the buffer (content before version headers)
+    for (i = 1; i <= buffer_idx; i++) {
+      print buffer[i]
+    }
+    # Add exactly one blank line (regardless of how many there were)
     print ""
+    # Add the new header
     print header
     print ""
     inserted=1
+    # Continue with current line (first old version header)
+    print
+    next
   }
+  !inserted {
+    # Buffer lines before the first version header
+    buffer[++buffer_idx] = $0
+    next
+  }
+  # After insertion, just print everything as-is
   { print }
   END {
     if (!inserted) {
+      # No version headers found, output buffer and add header at end
+      for (i = 1; i <= buffer_idx; i++) {
+        print buffer[i]
+      }
       print ""
       print header
       print ""

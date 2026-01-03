@@ -1,0 +1,4 @@
+PATCH
+- Fixed whitespace accumulation in changelog-version-new script
+- Added regression test to prevent whitespace issues in changelog generation
+- Fixed macOS compatibility in release scripts (rm command portability)
