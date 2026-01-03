@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 #MISE description="Generate SHA256 checksums for all release artifacts"
-#MISE sources=["release-artifacts/*"]
-#MISE outputs=["release-artifacts/CHECKSUMS.txt"]
 set -euo pipefail
 
 cd release-artifacts

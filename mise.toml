@@ -127,7 +127,6 @@ hk check --all
 hk check ${usage_paths}
 {% endif %}
 '''
-sources = ["src/**/*.zig", "build.zig"]
 
 [tasks.fix]
 description = "Fix code formatting and style issues"
@@ -142,5 +141,4 @@ hk fix --all
 hk fix ${usage_paths}
 {% endif %}
 '''
-sources = ["src/**/*.zig", "build.zig"]
 
