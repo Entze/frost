@@ -1,0 +1,4 @@
+MINOR
+- Added metadata fields to all mise tasks for improved discoverability
+- Enabled incremental builds with sources/outputs metadata (30x speedup for cached tasks)
+- Added comprehensive mise task guidelines to CONTRIBUTING.md

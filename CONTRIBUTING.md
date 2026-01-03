@@ -118,11 +118,10 @@ mise run test:zig:pattern  # First run: executes tests (625ms)
 mise run test:zig:pattern  # Second run: skipped (21ms) - 30x faster!
 ```
 
-This dramatically speeds up development workflows. To force a fresh run, modify a source file or clear the cache:
+To force a fresh run, use the `--force` flag:
 
 ```bash
-touch src/pattern.zig       # Trigger rebuild for specific module
-rm -rf ~/.local/state/mise/task-auto-outputs/*  # Clear all caches
+mise run --force test:zig:pattern  # Force re-execution
 ```
 
 ## Code Quality
@@ -148,7 +147,7 @@ mise run fix --all
 
 ## Mise Task Guidelines
 
-When creating or modifying mise tasks, follow these metadata standards:
+When creating or modifying mise tasks, follow these metadata standards. For comprehensive documentation on mise task configuration, see the [official mise task documentation](https://mise.jdx.dev/tasks/).
 
 ### Required Metadata
 
@@ -160,60 +159,19 @@ All tasks must have:
 Add these fields based on task functionality:
 
 - **`sources`** - Input files that trigger task re-execution when modified
-  - Use for: build tasks, test tasks, format/check tasks
-  - Example: `sources = ["src/**/*.zig", "build.zig"]`
+  - Use for: build tasks, test tasks
   - **Do not use** for tasks with dynamic input paths (via arguments)
 
 - **`outputs`** - Generated files that indicate task completion
   - Use for: build tasks, documentation generation
-  - Example: `outputs = ["zig-out/bin/*"]`
-  - Mise auto-generates outputs for tasks with sources but no outputs
 
 - **`usage`** - CLI argument specification for parameterized tasks
   - Use for: tasks accepting flags, options, or positional arguments
   - Provides `--help` text and type-safe argument parsing
-  - Example:
-    ```toml
-    usage = '''
-    arg "[paths]" var=#true
-    flag "--all"
-    '''
-    ```
 
-### Task Caching Benefits
-
-Properly configured `sources` and `outputs` enable:
-- **Incremental builds** - Skip unchanged tasks automatically
-- **Faster iteration** - 10-30x speedup for cached tasks
-- **Smart rebuilds** - Only rerun when inputs actually change
-
-### Examples
-
-**TOML Task with Full Metadata:**
-```toml
-[tasks."build:exe"]
-description = "Build the executable"
-sources = ["src/**/*.zig", "build.zig", "build.zig.zon"]
-outputs = ["zig-out/bin/frost-*"]
-usage = '''
-flag "--optimize <mode>" help="Optimization profile" {
-  choices "Debug" "ReleaseSafe" "ReleaseFast" "ReleaseSmall"
-}
-'''
-run = "zig build exe --summary all{% if usage.optimize %} -Doptimize={{ usage.optimize }}{% endif %}"
-```
-
-**File Task with Metadata:**
-```bash
-#!/usr/bin/env bash
-#MISE description="Generate SHA256 checksums for all release artifacts"
-#MISE sources=["release-artifacts/*"]
-#MISE outputs=["release-artifacts/CHECKSUMS.txt"]
-set -euo pipefail
-# ... task implementation
-```
-
-See [.github/instructions/mise-task.instructions.md](.github/instructions/mise-task.instructions.md) for comprehensive documentation.
+For detailed examples and advanced usage, see:
+- [Task configuration documentation](https://mise.jdx.dev/tasks/task-configuration.html)
+- [.github/instructions/mise-task.instructions.md](.github/instructions/mise-task.instructions.md)
 
 ## Release Process
 
