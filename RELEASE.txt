@@ -1,0 +1,5 @@
+PATCH
+- Introduced Zig API design for mise task migration
+- Added specification document for 11 shell script behaviors
+- Defined type-safe function signatures with tagged unions
+- Improved code quality with assert shorthand and refined documentation
