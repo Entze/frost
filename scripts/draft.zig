@@ -117,13 +117,33 @@ pub const ReleaseFileCheckResult = struct {
 };
 
 /// Result of validating RELEASE.txt.
-pub const ReleaseFileValidation = struct {
-    /// Whether validation passed
-    valid: bool,
-    /// Release type if valid, undefined if invalid
-    release_type: ReleaseType,
-    /// Error message if invalid, empty if valid
-    error_message: []const u8,
+pub const ReleaseFileValidation = union(enum) {
+    /// Validation succeeded, contains the parsed release type
+    valid: ReleaseType,
+    /// Validation failed, contains the reason for failure
+    invalid: InvalidReason,
+
+    /// Reasons why RELEASE.txt validation can fail.
+    pub const InvalidReason = enum {
+        /// RELEASE.txt file does not exist
+        missing_file,
+        /// RELEASE.txt exists but contains no content
+        empty_file,
+        /// First line is not one of MAJOR, MINOR, or PATCH
+        invalid_release_type,
+
+        /// Returns a static error message describing this failure reason.
+        ///
+        /// The returned slice is valid for the lifetime of the program
+        /// and must NOT be freed by the caller.
+        pub fn message(self: InvalidReason) []const u8 {
+            return switch (self) {
+                .missing_file => "RELEASE.txt file not found",
+                .empty_file => "RELEASE.txt is empty",
+                .invalid_release_type => "First line must be MAJOR, MINOR, or PATCH",
+            };
+        }
+    };
 };
 
 /// Content of RELEASE.txt after parsing.
@@ -136,18 +156,12 @@ pub const ReleaseFileContent = struct {
 
 /// Checks if RELEASE.txt exists.
 ///
-/// This function is used by CD workflows to determine whether to trigger
-/// a release. It always succeeds and never returns an error.
-///
-/// Note: allocator parameter is unused but kept for API consistency.
 /// Asserts release_file_path is non-empty.
 pub fn checkReleaseFileExists(
-    allocator: std.mem.Allocator,
     release_file_path: []const u8,
 ) ReleaseFileCheckResult {
     assert(release_file_path.len > 0);
 
-    _ = allocator;
     @compileError("not implemented yet");
 }
 
@@ -157,13 +171,11 @@ test checkReleaseFileExists {
 
 /// Validates RELEASE.txt format and content.
 ///
-/// This function is used by CI workflows to validate pull requests that
-/// include RELEASE.txt. It checks:
+/// Checks:
 /// 1. File exists
 /// 2. File is not empty
 /// 3. First line is exactly "MAJOR", "MINOR", or "PATCH"
 ///
-/// Caller must free error_message in returned struct if non-empty.
 /// Asserts release_file_path is non-empty.
 pub fn validateReleaseFile(
     allocator: std.mem.Allocator,
