@@ -415,6 +415,7 @@ test extractVersionSection {
     );
     defer allocator.free(content);
     // content contains the changelog section for version 0.1.0
+    try std.testing.expect(content.len > 0);
 }
 
 test "extractVersionSection: typical changelog via explicit version" {
