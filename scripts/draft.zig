@@ -15,6 +15,11 @@
 const std = @import("std");
 const assert = std.debug.assert;
 
+// C library for setenv/unsetenv in tests
+const c = @cImport({
+    @cInclude("stdlib.h");
+});
+
 /// Release bump type from RELEASE.txt first line.
 pub const ReleaseType = enum {
     major,
@@ -383,6 +388,18 @@ test insertReleaseNotes {
 /// If the version section is empty or not found, returns a default message
 /// "Release v{version}".
 ///
+/// Example:
+/// ```zig
+/// const allocator = std.heap.page_allocator;
+/// const content = try extractVersionSection(
+///     allocator,
+///     "CHANGELOG.md",
+///     "0.1.0"
+/// );
+/// defer allocator.free(content);
+/// // content contains the changelog section for version 0.1.0
+/// ```
+///
 /// Caller must free returned string.
 /// Asserts changelog_path and explicit_version (if provided) are non-empty.
 /// Returns ChangelogError.VersionNotFound if version cannot be determined.
@@ -397,11 +414,159 @@ pub fn extractVersionSection(
     }
 
     _ = allocator;
-    @compileError("not implemented yet");
+    // Stub implementation - will be replaced with actual implementation
+    return ChangelogError.VersionNotFound;
 }
 
-test extractVersionSection {
-    @compileError("not implemented yet");
+test "extractVersionSection: typical changelog via explicit version" {
+    const allocator = std.testing.allocator;
+    const changelog_path = "test/fixtures/changelog/typical.md";
+    const version = "0.2.0";
+
+    const result = try extractVersionSection(allocator, changelog_path, version);
+    defer allocator.free(result);
+
+    // Should extract the content for version 0.2.0
+    try std.testing.expect(std.mem.indexOf(u8, result, "Added new feature X") != null);
+    try std.testing.expect(std.mem.indexOf(u8, result, "Improved performance of algorithm Y") != null);
+    try std.testing.expect(std.mem.indexOf(u8, result, "Fixed bug in module Z") != null);
+}
+
+test "extractVersionSection: typical changelog via VERSION env var" {
+    const allocator = std.testing.allocator;
+    const changelog_path = "test/fixtures/changelog/typical.md";
+
+    // Set VERSION environment variable
+    _ = c.setenv("VERSION", "0.2.0", 1);
+    defer _ = c.unsetenv("VERSION");
+
+    const result = try extractVersionSection(allocator, changelog_path, null);
+    defer allocator.free(result);
+
+    // Should extract the content for version 0.2.0
+    try std.testing.expect(std.mem.indexOf(u8, result, "Added new feature X") != null);
+}
+
+test "extractVersionSection: typical changelog via GITHUB_REF env var" {
+    const allocator = std.testing.allocator;
+    const changelog_path = "test/fixtures/changelog/typical.md";
+
+    // Set GITHUB_REF environment variable
+    _ = c.setenv("GITHUB_REF", "refs/tags/v0.2.0", 1);
+    defer _ = c.unsetenv("GITHUB_REF");
+
+    const result = try extractVersionSection(allocator, changelog_path, null);
+    defer allocator.free(result);
+
+    // Should extract the content for version 0.2.0
+    try std.testing.expect(std.mem.indexOf(u8, result, "Added new feature X") != null);
+}
+
+test "extractVersionSection: single entry via explicit version" {
+    const allocator = std.testing.allocator;
+    const changelog_path = "test/fixtures/changelog/single-entry.md";
+    const version = "1.0.0";
+
+    const result = try extractVersionSection(allocator, changelog_path, version);
+    defer allocator.free(result);
+
+    // Should extract the content for version 1.0.0
+    try std.testing.expect(std.mem.indexOf(u8, result, "First stable release") != null);
+    try std.testing.expect(std.mem.indexOf(u8, result, "Production ready") != null);
+}
+
+test "extractVersionSection: single entry via VERSION env var" {
+    const allocator = std.testing.allocator;
+    const changelog_path = "test/fixtures/changelog/single-entry.md";
+
+    // Set VERSION environment variable
+    _ = c.setenv("VERSION", "1.0.0", 1);
+    defer _ = c.unsetenv("VERSION");
+
+    const result = try extractVersionSection(allocator, changelog_path, null);
+    defer allocator.free(result);
+
+    // Should extract the content for version 1.0.0
+    try std.testing.expect(std.mem.indexOf(u8, result, "First stable release") != null);
+}
+
+test "extractVersionSection: single entry via GITHUB_REF env var" {
+    const allocator = std.testing.allocator;
+    const changelog_path = "test/fixtures/changelog/single-entry.md";
+
+    // Set GITHUB_REF environment variable
+    _ = c.setenv("GITHUB_REF", "refs/tags/v1.0.0", 1);
+    defer _ = c.unsetenv("GITHUB_REF");
+
+    const result = try extractVersionSection(allocator, changelog_path, null);
+    defer allocator.free(result);
+
+    // Should extract the content for version 1.0.0
+    try std.testing.expect(std.mem.indexOf(u8, result, "First stable release") != null);
+}
+
+test "extractVersionSection: empty content returns default message via explicit version" {
+    const allocator = std.testing.allocator;
+    const changelog_path = "test/fixtures/changelog/empty-content.md";
+    const version = "0.3.0";
+
+    const result = try extractVersionSection(allocator, changelog_path, version);
+    defer allocator.free(result);
+
+    // Should return default message when content is empty
+    try std.testing.expectEqualStrings("Release v0.3.0", result);
+}
+
+test "extractVersionSection: empty content returns default message via VERSION env var" {
+    const allocator = std.testing.allocator;
+    const changelog_path = "test/fixtures/changelog/empty-content.md";
+
+    // Set VERSION environment variable
+    _ = c.setenv("VERSION", "0.3.0", 1);
+    defer _ = c.unsetenv("VERSION");
+
+    const result = try extractVersionSection(allocator, changelog_path, null);
+    defer allocator.free(result);
+
+    // Should return default message when content is empty
+    try std.testing.expectEqualStrings("Release v0.3.0", result);
+}
+
+test "extractVersionSection: empty content returns default message via GITHUB_REF env var" {
+    const allocator = std.testing.allocator;
+    const changelog_path = "test/fixtures/changelog/empty-content.md";
+
+    // Set GITHUB_REF environment variable
+    _ = c.setenv("GITHUB_REF", "refs/tags/v0.3.0", 1);
+    defer _ = c.unsetenv("GITHUB_REF");
+
+    const result = try extractVersionSection(allocator, changelog_path, null);
+    defer allocator.free(result);
+
+    // Should return default message when content is empty
+    try std.testing.expectEqualStrings("Release v0.3.0", result);
+}
+
+test "extractVersionSection: empty file returns error" {
+    const allocator = std.testing.allocator;
+    const changelog_path = "test/fixtures/changelog/empty.md";
+    const version = "0.1.0";
+
+    const result = extractVersionSection(allocator, changelog_path, version);
+
+    // Should return an error for empty file
+    try std.testing.expectError(ChangelogError.ParseFailed, result);
+}
+
+test "extractVersionSection: version not found returns VersionNotFound error" {
+    const allocator = std.testing.allocator;
+    const changelog_path = "test/fixtures/changelog/typical.md";
+    const version = "99.99.99";
+
+    const result = extractVersionSection(allocator, changelog_path, version);
+
+    // Should return VersionNotFound error when version doesn't exist
+    try std.testing.expectError(ChangelogError.VersionNotFound, result);
 }
 
 /// Organizes artifacts from source directory to destination.
