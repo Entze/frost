@@ -426,9 +426,13 @@ test "extractVersionSection: typical changelog via explicit version" {
     defer allocator.free(result);
 
     // Should extract the content for version 0.2.0
-    try std.testing.expect(std.mem.indexOf(u8, result, "Added new feature X") != null);
-    try std.testing.expect(std.mem.indexOf(u8, result, "Improved performance of algorithm Y") != null);
-    try std.testing.expect(std.mem.indexOf(u8, result, "Fixed bug in module Z") != null);
+    const expected =
+        \\- Added new feature X
+        \\- Improved performance of algorithm Y
+        \\- Fixed bug in module Z
+    ;
+
+    try std.testing.expectEqualStrings(expected, result);
 }
 
 test "extractVersionSection: typical changelog via VERSION env var" {
@@ -443,7 +447,13 @@ test "extractVersionSection: typical changelog via VERSION env var" {
     defer allocator.free(result);
 
     // Should extract the content for version 0.2.0
-    try std.testing.expect(std.mem.indexOf(u8, result, "Added new feature X") != null);
+    const expected =
+        \\- Added new feature X
+        \\- Improved performance of algorithm Y
+        \\- Fixed bug in module Z
+    ;
+
+    try std.testing.expectEqualStrings(expected, result);
 }
 
 test "extractVersionSection: typical changelog via GITHUB_REF env var" {
@@ -458,7 +468,13 @@ test "extractVersionSection: typical changelog via GITHUB_REF env var" {
     defer allocator.free(result);
 
     // Should extract the content for version 0.2.0
-    try std.testing.expect(std.mem.indexOf(u8, result, "Added new feature X") != null);
+    const expected =
+        \\- Added new feature X
+        \\- Improved performance of algorithm Y
+        \\- Fixed bug in module Z
+    ;
+
+    try std.testing.expectEqualStrings(expected, result);
 }
 
 test "extractVersionSection: single entry via explicit version" {
@@ -470,8 +486,12 @@ test "extractVersionSection: single entry via explicit version" {
     defer allocator.free(result);
 
     // Should extract the content for version 1.0.0
-    try std.testing.expect(std.mem.indexOf(u8, result, "First stable release") != null);
-    try std.testing.expect(std.mem.indexOf(u8, result, "Production ready") != null);
+    const expected =
+        \\- First stable release
+        \\- Production ready
+    ;
+
+    try std.testing.expectEqualStrings(expected, result);
 }
 
 test "extractVersionSection: single entry via VERSION env var" {
@@ -486,7 +506,12 @@ test "extractVersionSection: single entry via VERSION env var" {
     defer allocator.free(result);
 
     // Should extract the content for version 1.0.0
-    try std.testing.expect(std.mem.indexOf(u8, result, "First stable release") != null);
+    const expected =
+        \\- First stable release
+        \\- Production ready
+    ;
+
+    try std.testing.expectEqualStrings(expected, result);
 }
 
 test "extractVersionSection: single entry via GITHUB_REF env var" {
@@ -501,7 +526,12 @@ test "extractVersionSection: single entry via GITHUB_REF env var" {
     defer allocator.free(result);
 
     // Should extract the content for version 1.0.0
-    try std.testing.expect(std.mem.indexOf(u8, result, "First stable release") != null);
+    const expected =
+        \\- First stable release
+        \\- Production ready
+    ;
+
+    try std.testing.expectEqualStrings(expected, result);
 }
 
 test "extractVersionSection: empty content returns default message via explicit version" {
