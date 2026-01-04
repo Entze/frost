@@ -83,8 +83,8 @@ pub const ChangelogError = error{
     FileNotFound,
     /// Failed to parse changelog structure
     ParseFailed,
-    /// Requested version not found in changelog
-    VersionNotFound,
+    /// Version not specified (neither parameter nor env vars set)
+    VersionNotSpecified,
     /// Failed to read file contents
     ReadFailed,
     /// Failed to write file contents
@@ -385,24 +385,12 @@ test insertReleaseNotes {
 /// 2. VERSION environment variable (if set)
 /// 3. GITHUB_REF environment variable (if set)
 ///
-/// If the version section is empty or not found, returns a default message
-/// "Release v{version}".
-///
-/// Example:
-/// ```zig
-/// const allocator = std.heap.page_allocator;
-/// const content = try extractVersionSection(
-///     allocator,
-///     "CHANGELOG.md",
-///     "0.1.0"
-/// );
-/// defer allocator.free(content);
-/// // content contains the changelog section for version 0.1.0
-/// ```
+/// If the version section is empty or the version is not found in the changelog,
+/// returns a default message "Release v{version}".
 ///
 /// Caller must free returned string.
 /// Asserts changelog_path and explicit_version (if provided) are non-empty.
-/// Returns ChangelogError.VersionNotFound if version cannot be determined.
+/// Returns ChangelogError.VersionNotSpecified if version cannot be determined.
 pub fn extractVersionSection(
     allocator: std.mem.Allocator,
     changelog_path: []const u8,
@@ -415,7 +403,18 @@ pub fn extractVersionSection(
 
     _ = allocator;
     // Stub implementation - will be replaced with actual implementation
-    return ChangelogError.VersionNotFound;
+    return ChangelogError.VersionNotSpecified;
+}
+
+test extractVersionSection {
+    const allocator = std.testing.allocator;
+    const content = try extractVersionSection(
+        allocator,
+        "CHANGELOG.md",
+        "0.1.0",
+    );
+    defer allocator.free(content);
+    // content contains the changelog section for version 0.1.0
 }
 
 test "extractVersionSection: typical changelog via explicit version" {
@@ -558,15 +557,30 @@ test "extractVersionSection: empty file returns error" {
     try std.testing.expectError(ChangelogError.ParseFailed, result);
 }
 
-test "extractVersionSection: version not found returns VersionNotFound error" {
+test "extractVersionSection: version not specified returns VersionNotSpecified error" {
+    const allocator = std.testing.allocator;
+    const changelog_path = "test/fixtures/changelog/typical.md";
+
+    // Clear environment variables to ensure they're not set
+    _ = c.unsetenv("VERSION");
+    _ = c.unsetenv("GITHUB_REF");
+
+    const result = extractVersionSection(allocator, changelog_path, null);
+
+    // Should return VersionNotSpecified error when no version is specified
+    try std.testing.expectError(ChangelogError.VersionNotSpecified, result);
+}
+
+test "extractVersionSection: unknown version returns default message" {
     const allocator = std.testing.allocator;
     const changelog_path = "test/fixtures/changelog/typical.md";
     const version = "99.99.99";
 
-    const result = extractVersionSection(allocator, changelog_path, version);
+    const result = try extractVersionSection(allocator, changelog_path, version);
+    defer allocator.free(result);
 
-    // Should return VersionNotFound error when version doesn't exist
-    try std.testing.expectError(ChangelogError.VersionNotFound, result);
+    // Should return default message when version doesn't exist in changelog
+    try std.testing.expectEqualStrings("Release v99.99.99", result);
 }
 
 /// Organizes artifacts from source directory to destination.
