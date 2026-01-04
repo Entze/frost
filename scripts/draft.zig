@@ -13,6 +13,7 @@
 //! - GitHub Actions integration (GITHUB_OUTPUT, GITHUB_REF)
 
 const std = @import("std");
+const assert = std.debug.assert;
 
 /// Release bump type from RELEASE.txt first line.
 pub const ReleaseType = enum {
@@ -22,49 +23,33 @@ pub const ReleaseType = enum {
 
     /// Parses a string to ReleaseType.
     ///
-    /// Preconditions:
-    /// - input must be non-empty slice
+    /// Recognizes: "MAJOR", "MINOR", "PATCH" (case-sensitive, uppercase only).
     ///
-    /// Postconditions:
-    /// - Returns parsed ReleaseType on success
-    /// - Returns error.InvalidReleaseType if string is not recognized
-    ///
-    /// Ownership:
-    /// - input is borrowed, not owned
-    ///
-    /// Lifetime:
-    /// - input must remain valid for duration of function call
+    /// Returns error.InvalidReleaseType for unrecognized strings.
+    /// Asserts input is non-empty.
     pub fn parse(input: []const u8) !ReleaseType {
-        std.debug.assert(input.len > 0);
+        assert(input.len > 0);
 
         @compileError("not implemented yet");
     }
 
-    /// Converts ReleaseType to lowercase string.
+    /// Returns static string literal for this release type.
     ///
-    /// Preconditions:
-    /// - self must be valid ReleaseType enum value
+    /// The returned slice is valid for the lifetime of the program
+    /// and must NOT be freed by the caller.
     ///
-    /// Postconditions:
-    /// - Returns lowercase string representation
-    ///
-    /// Returns:
-    /// - "major", "minor", or "patch"
+    /// Returns: "major", "minor", or "patch"
     pub fn toLowerString(self: ReleaseType) []const u8 {
         _ = self;
         @compileError("not implemented yet");
     }
 
-    /// Converts ReleaseType to uppercase string.
+    /// Returns static string literal for this release type.
     ///
-    /// Preconditions:
-    /// - self must be valid ReleaseType enum value
+    /// The returned slice is valid for the lifetime of the program
+    /// and must NOT be freed by the caller.
     ///
-    /// Postconditions:
-    /// - Returns uppercase string representation
-    ///
-    /// Returns:
-    /// - "MAJOR", "MINOR", or "PATCH"
+    /// Returns: "MAJOR", "MINOR", or "PATCH"
     pub fn toUpperString(self: ReleaseType) []const u8 {
         _ = self;
         @compileError("not implemented yet");
@@ -154,32 +139,13 @@ pub const ReleaseFileContent = struct {
 /// This function is used by CD workflows to determine whether to trigger
 /// a release. It always succeeds and never returns an error.
 ///
-/// Preconditions:
-/// - allocator must be valid allocator
-/// - release_file_path must be valid path string
-///
-/// Postconditions:
-/// - Returns ReleaseFileCheckResult with exists field set
-///
-/// Parameters:
-/// - allocator: Memory allocator (borrowed, unused for this function but required for consistency)
-/// - release_file_path: Path to RELEASE.txt file (default: "RELEASE.txt")
-///
-/// Returns:
-/// - ReleaseFileCheckResult indicating whether file exists
-///
-/// Ownership:
-/// - allocator is borrowed
-/// - release_file_path is borrowed
-/// - Returned struct is owned by caller (no allocations in this function)
-///
-/// Lifetime:
-/// - release_file_path must remain valid for duration of function call
+/// Note: allocator parameter is unused but kept for API consistency.
+/// Asserts release_file_path is non-empty.
 pub fn checkReleaseFileExists(
     allocator: std.mem.Allocator,
     release_file_path: []const u8,
 ) ReleaseFileCheckResult {
-    std.debug.assert(release_file_path.len > 0);
+    assert(release_file_path.len > 0);
 
     _ = allocator;
     @compileError("not implemented yet");
@@ -197,34 +163,13 @@ test checkReleaseFileExists {
 /// 2. File is not empty
 /// 3. First line is exactly "MAJOR", "MINOR", or "PATCH"
 ///
-/// Preconditions:
-/// - allocator must be valid allocator
-/// - release_file_path must be valid path string
-///
-/// Postconditions:
-/// - Returns ReleaseFileValidation with validation results
-/// - error_message is allocated if validation fails
-///
-/// Parameters:
-/// - allocator: Memory allocator for error messages
-/// - release_file_path: Path to RELEASE.txt file (default: "RELEASE.txt")
-///
-/// Returns:
-/// - ReleaseFileValidation with validation results
-///
-/// Ownership:
-/// - allocator is borrowed
-/// - release_file_path is borrowed
-/// - Caller owns error_message in returned struct and must free it if non-empty
-///
-/// Lifetime:
-/// - release_file_path must remain valid for duration of function call
-/// - error_message remains valid until freed by caller
+/// Caller must free error_message in returned struct if non-empty.
+/// Asserts release_file_path is non-empty.
 pub fn validateReleaseFile(
     allocator: std.mem.Allocator,
     release_file_path: []const u8,
 ) !ReleaseFileValidation {
-    std.debug.assert(release_file_path.len > 0);
+    assert(release_file_path.len > 0);
 
     _ = allocator;
     @compileError("not implemented yet");
@@ -237,39 +182,15 @@ test validateReleaseFile {
 /// Reads and parses RELEASE.txt content.
 ///
 /// Extracts the release type from the first line and the release notes
-/// from subsequent lines. This is a low-level function used by other
-/// operations that need to process RELEASE.txt.
+/// from subsequent lines.
 ///
-/// Preconditions:
-/// - allocator must be valid allocator
-/// - release_file_path must be valid path string
-/// - RELEASE.txt must exist and be valid
-///
-/// Postconditions:
-/// - Returns ReleaseFileContent with parsed data
-/// - release_notes is allocated and owned by caller
-///
-/// Parameters:
-/// - allocator: Memory allocator for release notes
-/// - release_file_path: Path to RELEASE.txt file (default: "RELEASE.txt")
-///
-/// Returns:
-/// - ReleaseFileContent with release_type and release_notes
-/// - ReleaseFileError if file doesn't exist, is empty, or has invalid format
-///
-/// Ownership:
-/// - allocator is borrowed
-/// - release_file_path is borrowed
-/// - Caller owns release_notes in returned struct and must free it
-///
-/// Lifetime:
-/// - release_file_path must remain valid for duration of function call
-/// - release_notes remains valid until freed by caller
+/// Caller must free release_notes in returned struct.
+/// Asserts release_file_path is non-empty.
 pub fn readReleaseFile(
     allocator: std.mem.Allocator,
     release_file_path: []const u8,
 ) !ReleaseFileContent {
-    std.debug.assert(release_file_path.len > 0);
+    assert(release_file_path.len > 0);
 
     _ = allocator;
     @compileError("not implemented yet");
@@ -284,27 +205,11 @@ test readReleaseFile {
 /// This is a cleanup operation typically run after a successful release.
 /// It is idempotent - if the file doesn't exist, it succeeds without error.
 ///
-/// Preconditions:
-/// - release_file_path must be valid path string
-///
-/// Postconditions:
-/// - RELEASE.txt is deleted if it existed
-/// - Function succeeds even if file didn't exist
-///
-/// Parameters:
-/// - release_file_path: Path to RELEASE.txt file (default: "RELEASE.txt")
-///
-/// Returns:
-/// - void on success
-/// - ReleaseFileError.DeleteFailed if deletion fails for reasons other than file not existing
-///
-/// Ownership:
-/// - release_file_path is borrowed
-///
-/// Lifetime:
-/// - release_file_path must remain valid for duration of function call
+/// Returns ReleaseFileError.DeleteFailed if deletion fails for reasons
+/// other than file not existing.
+/// Asserts release_file_path is non-empty.
 pub fn deleteReleaseFile(release_file_path: []const u8) !void {
-    std.debug.assert(release_file_path.len > 0);
+    assert(release_file_path.len > 0);
 
     @compileError("not implemented yet");
 }
@@ -318,32 +223,11 @@ test deleteReleaseFile {
 /// Appends "key=value\n" to the file specified by GITHUB_OUTPUT environment
 /// variable. This is used to pass data between GitHub Actions steps.
 ///
-/// Preconditions:
-/// - key must be non-empty string
-/// - value must be non-empty string
-/// - GITHUB_OUTPUT environment variable must be set
-///
-/// Postconditions:
-/// - "key=value\n" is appended to GITHUB_OUTPUT file
-///
-/// Parameters:
-/// - key: Output variable name
-/// - value: Output variable value
-///
-/// Returns:
-/// - void on success
-/// - error.EnvironmentVariableNotFound if GITHUB_OUTPUT not set
-/// - error.WriteFailed if write operation fails
-///
-/// Ownership:
-/// - key is borrowed
-/// - value is borrowed
-///
-/// Lifetime:
-/// - key and value must remain valid for duration of function call
+/// Returns error.EnvironmentVariableNotFound if GITHUB_OUTPUT not set.
+/// Asserts key and value are non-empty.
 pub fn writeGithubOutput(key: []const u8, value: []const u8) !void {
-    std.debug.assert(key.len > 0);
-    std.debug.assert(value.len > 0);
+    assert(key.len > 0);
+    assert(value.len > 0);
 
     @compileError("not implemented yet");
 }
@@ -357,24 +241,9 @@ test writeGithubOutput {
 /// Parses GITHUB_REF in format "refs/tags/v{version}" and extracts the
 /// version string (without the "v" prefix).
 ///
-/// Preconditions:
-/// - allocator must be valid allocator
-/// - GITHUB_REF environment variable must be set
-///
-/// Postconditions:
-/// - Returns allocated version string
-///
-/// Returns:
-/// - Version string (caller owns memory)
-/// - error.EnvironmentVariableNotFound if GITHUB_REF not set
-/// - error.InvalidFormat if GITHUB_REF doesn't match expected format
-///
-/// Ownership:
-/// - allocator is borrowed
-/// - Caller owns returned string and must free it
-///
-/// Lifetime:
-/// - Returned string remains valid until freed by caller
+/// Caller must free returned string.
+/// Returns error.EnvironmentVariableNotFound if GITHUB_REF not set.
+/// Returns error.InvalidFormat if GITHUB_REF doesn't match expected format.
 pub fn extractVersionFromGithubRef(allocator: std.mem.Allocator) ![]const u8 {
     _ = allocator;
     @compileError("not implemented yet");
@@ -412,14 +281,9 @@ pub const Changelog = struct {
 
     /// Frees all memory associated with this Changelog.
     ///
-    /// Preconditions:
-    /// - Changelog must have been created with parseChangelog
-    ///
-    /// Postconditions:
-    /// - All allocated memory is freed
-    /// - Changelog is no longer valid for use
+    /// After calling deinit, the Changelog is no longer valid for use.
     pub fn deinit(self: *Changelog) void {
-        std.debug.assert(self.allocator.vtable != null);
+        assert(self.allocator.vtable != null);
 
         @compileError("not implemented yet");
     }
@@ -430,38 +294,14 @@ pub const Changelog = struct {
 /// Reads and parses a changelog file, extracting:
 /// - Abstract (content before first version header)
 /// - Version entries (each "## " header with its content)
-/// - Structure for further manipulation
 ///
-/// Preconditions:
-/// - allocator must be valid allocator
-/// - changelog_path must be valid path string
-/// - Changelog file must exist
-///
-/// Postconditions:
-/// - Returns Changelog with parsed structure
-/// - All content is allocated and owned by Changelog
-///
-/// Parameters:
-/// - allocator: Memory allocator for parsed structure
-/// - changelog_path: Path to CHANGELOG.md file (default: "CHANGELOG.md")
-///
-/// Returns:
-/// - Parsed Changelog structure (caller must call deinit)
-/// - ChangelogError if file doesn't exist or parsing fails
-///
-/// Ownership:
-/// - allocator is borrowed
-/// - changelog_path is borrowed
-/// - Caller owns returned Changelog and must call deinit
-///
-/// Lifetime:
-/// - changelog_path must remain valid for duration of function call
-/// - Changelog remains valid until deinit is called
+/// Caller must call deinit on returned Changelog to free allocated memory.
+/// Asserts changelog_path is non-empty.
 pub fn parseChangelog(
     allocator: std.mem.Allocator,
     changelog_path: []const u8,
 ) !Changelog {
-    std.debug.assert(changelog_path.len > 0);
+    assert(changelog_path.len > 0);
 
     _ = allocator;
     @compileError("not implemented yet");
@@ -477,42 +317,17 @@ test parseChangelog {
 /// existing version header. Ensures exactly one blank line between the
 /// abstract and the first version header, preventing whitespace accumulation.
 ///
-/// Preconditions:
-/// - allocator must be valid allocator
-/// - changelog_path must be valid path string
-/// - version must be non-empty string
-/// - date must be in format YYYY-MM-DD
-/// - Changelog file must exist
-///
-/// Postconditions:
-/// - Changelog file is updated with new version header
-/// - Exactly one blank line separates abstract from first version
-///
-/// Parameters:
-/// - allocator: Memory allocator for temporary buffers
-/// - changelog_path: Path to CHANGELOG.md file (default: "CHANGELOG.md")
-/// - version: Version string (e.g., "0.1.0")
-/// - date: Date string in format YYYY-MM-DD
-///
-/// Returns:
-/// - void on success
-/// - ChangelogError if file operations fail
-///
-/// Ownership:
-/// - allocator is borrowed
-/// - changelog_path, version, date are borrowed
-///
-/// Lifetime:
-/// - Parameters must remain valid for duration of function call
+/// Date must be in format YYYY-MM-DD.
+/// Asserts changelog_path, version, and date are non-empty.
 pub fn insertVersionHeader(
     allocator: std.mem.Allocator,
     changelog_path: []const u8,
     version: []const u8,
     date: []const u8,
 ) !void {
-    std.debug.assert(changelog_path.len > 0);
-    std.debug.assert(version.len > 0);
-    std.debug.assert(date.len > 0);
+    assert(changelog_path.len > 0);
+    assert(version.len > 0);
+    assert(date.len > 0);
 
     _ = allocator;
     @compileError("not implemented yet");
@@ -527,37 +342,15 @@ test insertVersionHeader {
 /// Finds the first "## " version header in the changelog and inserts
 /// the release notes after it, with appropriate spacing.
 ///
-/// Preconditions:
-/// - allocator must be valid allocator
-/// - changelog_path must be valid path string
-/// - release_notes must be non-empty string
-/// - Changelog file must exist and have at least one version header
-///
-/// Postconditions:
-/// - Changelog file is updated with release notes inserted
-///
-/// Parameters:
-/// - allocator: Memory allocator for temporary buffers
-/// - changelog_path: Path to CHANGELOG.md file (default: "CHANGELOG.md")
-/// - release_notes: Release notes to insert (from RELEASE.txt lines 2+)
-///
-/// Returns:
-/// - void on success
-/// - ChangelogError if file operations fail or no version header found
-///
-/// Ownership:
-/// - allocator is borrowed
-/// - changelog_path, release_notes are borrowed
-///
-/// Lifetime:
-/// - Parameters must remain valid for duration of function call
+/// Returns ChangelogError if no version header found.
+/// Asserts changelog_path and release_notes are non-empty.
 pub fn insertReleaseNotes(
     allocator: std.mem.Allocator,
     changelog_path: []const u8,
     release_notes: []const u8,
 ) !void {
-    std.debug.assert(changelog_path.len > 0);
-    std.debug.assert(release_notes.len > 0);
+    assert(changelog_path.len > 0);
+    assert(release_notes.len > 0);
 
     _ = allocator;
     @compileError("not implemented yet");
@@ -578,40 +371,17 @@ test insertReleaseNotes {
 /// If the version section is empty or not found, returns a default message
 /// "Release v{version}".
 ///
-/// Preconditions:
-/// - allocator must be valid allocator
-/// - changelog_path must be valid path string
-/// - If explicit_version is provided, it must be non-empty
-/// - At least one of: explicit_version, VERSION env var, or GITHUB_REF must be available
-///
-/// Postconditions:
-/// - Returns extracted section content
-///
-/// Parameters:
-/// - allocator: Memory allocator for extracted content
-/// - changelog_path: Path to CHANGELOG.md file (default: "CHANGELOG.md")
-/// - explicit_version: Optional explicit version string (overrides environment variables)
-///
-/// Returns:
-/// - Extracted changelog section (caller owns memory)
-/// - ChangelogError.VersionNotFound if version cannot be determined or not found in changelog
-///
-/// Ownership:
-/// - allocator is borrowed
-/// - changelog_path, explicit_version are borrowed
-/// - Caller owns returned string and must free it
-///
-/// Lifetime:
-/// - Parameters must remain valid for duration of function call
-/// - Returned string remains valid until freed by caller
+/// Caller must free returned string.
+/// Asserts changelog_path and explicit_version (if provided) are non-empty.
+/// Returns ChangelogError.VersionNotFound if version cannot be determined.
 pub fn extractVersionSection(
     allocator: std.mem.Allocator,
     changelog_path: []const u8,
     explicit_version: ?[]const u8,
 ) ![]const u8 {
-    std.debug.assert(changelog_path.len > 0);
+    assert(changelog_path.len > 0);
     if (explicit_version) |v| {
-        std.debug.assert(v.len > 0);
+        assert(v.len > 0);
     }
 
     _ = allocator;
@@ -629,38 +399,15 @@ test extractVersionSection {
 /// typically used to organize GitHub Actions artifacts that were downloaded
 /// with their workflow structure preserved.
 ///
-/// Preconditions:
-/// - allocator must be valid allocator
-/// - source_dir must be valid path string
-/// - dest_dir must be valid path string
-/// - source_dir must exist
-///
-/// Postconditions:
-/// - dest_dir is created if it doesn't exist
-/// - All files from source_dir tree are copied to dest_dir (flattened)
-///
-/// Parameters:
-/// - allocator: Memory allocator for temporary buffers
-/// - source_dir: Source directory path (e.g., "artifacts")
-/// - dest_dir: Destination directory path (e.g., "release-artifacts")
-///
-/// Returns:
-/// - void on success
-/// - ArtifactError if operations fail
-///
-/// Ownership:
-/// - allocator is borrowed
-/// - source_dir, dest_dir are borrowed
-///
-/// Lifetime:
-/// - Parameters must remain valid for duration of function call
+/// Creates dest_dir if it doesn't exist.
+/// Asserts source_dir and dest_dir are non-empty.
 pub fn organizeArtifacts(
     allocator: std.mem.Allocator,
     source_dir: []const u8,
     dest_dir: []const u8,
 ) !void {
-    std.debug.assert(source_dir.len > 0);
-    std.debug.assert(dest_dir.len > 0);
+    assert(source_dir.len > 0);
+    assert(dest_dir.len > 0);
 
     _ = allocator;
     @compileError("not implemented yet");
@@ -676,35 +423,13 @@ test organizeArtifacts {
 /// SHA256 checksums for all files in that directory. The format matches
 /// the output of the `sha256sum` command.
 ///
-/// Preconditions:
-/// - allocator must be valid allocator
-/// - artifacts_dir must be valid path string
-/// - artifacts_dir must exist and contain at least one file
-///
-/// Postconditions:
-/// - CHECKSUMS.txt is created in artifacts_dir
-/// - File contains SHA256 checksums for all files in directory
-///
-/// Parameters:
-/// - allocator: Memory allocator for temporary buffers
-/// - artifacts_dir: Directory path containing artifacts (e.g., "release-artifacts")
-///
-/// Returns:
-/// - void on success
-/// - ArtifactError.NoArtifacts if directory is empty
-/// - ArtifactError if operations fail
-///
-/// Ownership:
-/// - allocator is borrowed
-/// - artifacts_dir is borrowed
-///
-/// Lifetime:
-/// - artifacts_dir must remain valid for duration of function call
+/// Returns ArtifactError.NoArtifacts if directory is empty.
+/// Asserts artifacts_dir is non-empty.
 pub fn generateChecksums(
     allocator: std.mem.Allocator,
     artifacts_dir: []const u8,
 ) !void {
-    std.debug.assert(artifacts_dir.len > 0);
+    assert(artifacts_dir.len > 0);
 
     _ = allocator;
     @compileError("not implemented yet");
