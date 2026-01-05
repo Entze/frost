@@ -71,22 +71,8 @@ depends = ["test:*"]
 
 [tasks."test:zig"]
 description = "Run all Zig tests"
-depends = ["test:zig:*"]
-
-[tasks."test:zig:root"]
-description = "Test the root module"
-run = "zig test src/root.zig"
-sources = ["src/root.zig"]
-
-[tasks."test:zig:main"]
-description = "Test the main module"
-run = "zig test src/main.zig"
-sources = ["src/main.zig"]
-
-[tasks."test:zig:pattern"]
-description = "Test the pattern module"
-run = "zig test src/pattern.zig"
-sources = ["src/pattern.zig"]
+run = "zig build test --summary all"
+sources = ["src/**/*.zig", "build.zig", "build.zig.zon"]
 
 [tasks."test:mise"]
 description = "Run all mise task tests"
