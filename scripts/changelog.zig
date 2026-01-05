@@ -64,7 +64,7 @@ fn determineVersion(
     // Try VERSION environment variable
     if (std.process.getEnvVarOwned(allocator, "VERSION")) |v| {
         if (v.len > 0) {
-            defer assert(v.len > 0);
+            assert(v.len > 0);
             return v;
         }
         allocator.free(v);
@@ -80,7 +80,7 @@ fn determineVersion(
             const version_part = github_ref[prefix.len..];
             if (version_part.len > 0) {
                 const result = try allocator.dupe(u8, version_part);
-                defer assert(result.len > 0);
+                assert(result.len > 0);
                 return result;
             }
         }
@@ -147,13 +147,13 @@ fn extractContentForVersion(
     // If version not found or content is empty, return default message
     if (!found_version or trimmed_content.len == 0) {
         const result = try std.fmt.allocPrint(allocator, "Release v{s}", .{version});
-        defer assert(result.len > 0);
+        assert(result.len > 0);
         return result;
     }
 
     // Return the extracted content
     const result = try allocator.dupe(u8, trimmed_content);
-    defer assert(result.len > 0);
+    assert(result.len > 0);
     return result;
 }
 
