@@ -457,6 +457,27 @@ pub fn build(b: *std.Build) void {
         release_step.dependOn(&install_release_lib_dynamic.step);
     }
 
+    // Step 7: changelog-section-extract - Extract version section from changelog
+    const changelog_cli = b.addExecutable(.{
+        .name = "changelog-extract",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("scripts/changelog_cli.zig"),
+            .target = target,
+            .optimize = optimize,
+            .link_libc = true,
+        }),
+    });
+
+    const changelog_extract_step = b.step("changelog-section-extract", "Extract version section from changelog");
+    const run_changelog_cli = b.addRunArtifact(changelog_cli);
+
+    // Pass through command-line arguments
+    if (b.args) |args| {
+        run_changelog_cli.addArgs(args);
+    }
+
+    changelog_extract_step.dependOn(&run_changelog_cli.step);
+
     // Existing run step
     const run_step = b.step("run", "Run the app");
     const run_cmd = b.addRunArtifact(exe);
