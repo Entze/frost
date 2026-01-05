@@ -404,8 +404,8 @@ fn determineVersion(
 
     // Try VERSION environment variable
     if (std.process.getEnvVarOwned(allocator, "VERSION")) |v| {
-        defer assert(v.len > 0);
         if (v.len > 0) {
+            defer assert(v.len > 0);
             return v;
         }
         allocator.free(v);
