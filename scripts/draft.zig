@@ -377,8 +377,6 @@ test insertReleaseNotes {
     @compileError("not implemented yet");
 }
 
-
-
 /// Organizes artifacts from source directory to destination.
 ///
 /// Recursively finds all files in the source directory tree and copies them
