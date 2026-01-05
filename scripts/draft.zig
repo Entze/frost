@@ -377,6 +377,127 @@ test insertReleaseNotes {
     @compileError("not implemented yet");
 }
 
+/// Determines version from explicit parameter or environment variables.
+///
+/// The version is determined by checking sources in this order:
+/// 1. Explicit version parameter (if provided)
+/// 2. VERSION environment variable (if set)
+/// 3. GITHUB_REF environment variable (if set)
+///
+/// Caller must free returned string if explicit_version was null.
+/// Returns ChangelogError.VersionNotSpecified if no version source found.
+///
+/// Preconditions:
+/// - explicit_version (if provided) must be non-empty
+///
+/// Postconditions:
+/// - Returns non-empty version string or error
+fn determineVersion(
+    allocator: std.mem.Allocator,
+    explicit_version: ?[]const u8,
+) ![]const u8 {
+    // Use explicit version if provided
+    if (explicit_version) |v| {
+        assert(v.len > 0);
+        return v;
+    }
+
+    // Try VERSION environment variable
+    if (std.process.getEnvVarOwned(allocator, "VERSION")) |v| {
+        if (v.len > 0) {
+            defer assert(v.len > 0);
+            return v;
+        }
+        allocator.free(v);
+    } else |_| {}
+
+    // Try GITHUB_REF environment variable
+    if (std.process.getEnvVarOwned(allocator, "GITHUB_REF")) |github_ref| {
+        defer allocator.free(github_ref);
+
+        // Parse GITHUB_REF format: "refs/tags/v{version}"
+        const prefix = "refs/tags/v";
+        if (std.mem.startsWith(u8, github_ref, prefix)) {
+            const version_part = github_ref[prefix.len..];
+            if (version_part.len > 0) {
+                const result = try allocator.dupe(u8, version_part);
+                defer assert(result.len > 0);
+                return result;
+            }
+        }
+    } else |_| {}
+
+    // No version found
+    return ChangelogError.VersionNotSpecified;
+}
+
+/// Extracts version section content from changelog.
+///
+/// Parses changelog line-by-line to find the version header and extracts
+/// content between that header and the next version header.
+///
+/// Caller must free returned string.
+///
+/// Preconditions:
+/// - content must be non-empty
+/// - version must be non-empty
+///
+/// Postconditions:
+/// - Returns non-empty string (either extracted content or default message)
+fn extractContentForVersion(
+    allocator: std.mem.Allocator,
+    content: []const u8,
+    version: []const u8,
+) ![]const u8 {
+    assert(content.len > 0);
+    assert(version.len > 0);
+
+    var lines = std.mem.splitScalar(u8, content, '\n');
+    var found_version = false;
+    var content_lines: std.ArrayList(u8) = .empty;
+    defer content_lines.deinit(allocator);
+
+    while (lines.next()) |line| {
+        // Check if this is a version header (starts with "## ")
+        if (std.mem.startsWith(u8, line, "## ")) {
+            const header_content = line[3..]; // Skip "## "
+
+            // Extract version from header (format: "version (date)" or just "version")
+            const version_end = std.mem.indexOfAny(u8, header_content, " (") orelse header_content.len;
+            const header_version = header_content[0..version_end];
+
+            if (std.mem.eql(u8, header_version, version)) {
+                found_version = true;
+                continue;
+            } else if (found_version) {
+                // Found the next version header, stop collecting
+                break;
+            }
+        } else if (found_version) {
+            // Collect content lines for the target version
+            if (content_lines.items.len > 0) {
+                try content_lines.append(allocator, '\n');
+            }
+            try content_lines.appendSlice(allocator, line);
+        }
+    }
+
+    // Trim trailing whitespace from collected content
+    const trimmed_content = std.mem.trim(u8, content_lines.items, " \t\n\r");
+
+    // If version not found or content is empty, return default message
+    if (!found_version or trimmed_content.len == 0) {
+        const result = try std.fmt.allocPrint(allocator, "Release v{s}", .{version});
+        defer assert(result.len > 0);
+        return result;
+    }
+
+    // Return the extracted content
+    const result = try allocator.dupe(u8, trimmed_content);
+    defer assert(result.len > 0);
+    return result;
+}
+
 /// Extracts a specific version section from the changelog.
 ///
 /// Finds and extracts the content for a specific version from the changelog.
@@ -401,9 +522,32 @@ pub fn extractVersionSection(
         assert(v.len > 0);
     }
 
-    _ = allocator;
-    // Stub implementation - will be replaced with actual implementation
-    return ChangelogError.VersionNotSpecified;
+    // Determine version from parameters or environment variables
+    const version = try determineVersion(allocator, explicit_version);
+    const should_free_version = explicit_version == null;
+    defer if (should_free_version) allocator.free(version);
+
+    // Read the changelog file
+    const file = std.fs.cwd().openFile(changelog_path, .{}) catch |err| {
+        return switch (err) {
+            error.FileNotFound => ChangelogError.FileNotFound,
+            else => ChangelogError.ReadFailed,
+        };
+    };
+    defer file.close();
+
+    const content = file.readToEndAlloc(allocator, std.math.maxInt(usize)) catch {
+        return ChangelogError.ReadFailed;
+    };
+    defer allocator.free(content);
+
+    // Handle empty file
+    if (content.len == 0) {
+        return ChangelogError.ParseFailed;
+    }
+
+    // Extract content for the determined version
+    return extractContentForVersion(allocator, content, version);
 }
 
 test extractVersionSection {
