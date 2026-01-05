@@ -1,11 +1,7 @@
 #!/usr/bin/env bash
 #MISE description="Extract changelog section for the current release version"
-#USAGE arg "<changelog>" help="Path to CHANGELOG.md file" default="CHANGELOG.md"
+#MISE usage="arg \"<changelog>\" help=\"Path to CHANGELOG.md file\" default=\"CHANGELOG.md\""
 set -euo pipefail
-
-# The #USAGE directive above is a mise-specific annotation that parses command-line arguments.
-# It makes the changelog path available as ${usage_changelog?} instead of using $1 directly,
-# providing better integration with mise's argument parsing and validation.
 
 # Get version from environment variable or GITHUB_REF
 # VERSION takes priority over GITHUB_REF for explicit control in CI workflows.
@@ -27,27 +23,9 @@ fi
 
 echo "Extracting changelog for version $version"
 
-# Create temporary file for release notes
-temp_file=$(mktemp)
-trap 'rm -f "$temp_file"' EXIT
+# Call the Zig build step to extract changelog content
+# The Zig implementation handles version determination from environment variables
+zig build changelog-section-extract -- "$1" > release_notes.txt
 
-# Extract the section for this version from the specified changelog
-awk -v version="$version" '
-  /^## / {
-    if (found) exit;
-    if ($0 ~ version) {
-      found=1;
-      next;
-    }
-  }
-  found && /^## / { exit }
-  found { print }
-' "${usage_changelog?}" > "$temp_file"
-
-if [ ! -s "$temp_file" ]; then
-  echo "Release v$version" > "$temp_file"
-fi
-
-# Copy to release_notes.txt for workflow
-cat "$temp_file" > release_notes.txt
+# Output the content to stdout
 cat release_notes.txt
