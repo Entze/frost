@@ -396,23 +396,18 @@ fn determineVersion(
     allocator: std.mem.Allocator,
     explicit_version: ?[]const u8,
 ) ![]const u8 {
-    if (explicit_version) |v| {
-        assert(v.len > 0);
-    }
-
     // Use explicit version if provided
     if (explicit_version) |v| {
-        assert(v.len > 0); // Postcondition: returned version is never empty
+        assert(v.len > 0);
         return v;
     }
 
     // Try VERSION environment variable
     if (std.process.getEnvVarOwned(allocator, "VERSION")) |v| {
+        defer assert(v.len > 0);
         if (v.len > 0) {
-            assert(v.len > 0); // Postcondition: returned version is never empty
             return v;
         }
-        // VERSION env var is empty, free and continue to next source
         allocator.free(v);
     } else |_| {}
 
@@ -426,7 +421,7 @@ fn determineVersion(
             const version_part = github_ref[prefix.len..];
             if (version_part.len > 0) {
                 const result = try allocator.dupe(u8, version_part);
-                assert(result.len > 0); // Postcondition: returned version is never empty
+                defer assert(result.len > 0);
                 return result;
             }
         }
@@ -493,13 +488,13 @@ fn extractContentForVersion(
     // If version not found or content is empty, return default message
     if (!found_version or trimmed_content.len == 0) {
         const result = try std.fmt.allocPrint(allocator, "Release v{s}", .{version});
-        assert(result.len > 0); // Postcondition: result is never empty
+        defer assert(result.len > 0);
         return result;
     }
 
     // Return the extracted content
     const result = try allocator.dupe(u8, trimmed_content);
-    assert(result.len > 0); // Postcondition: result is never empty
+    defer assert(result.len > 0);
     return result;
 }
 

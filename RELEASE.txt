@@ -1,0 +1,4 @@
+PATCH
+- Implemented extractVersionSection function for changelog parsing
+- Added helper functions determineVersion and extractContentForVersion
+- Supports three version resolution methods: explicit parameter, VERSION env var, and GITHUB_REF env var
