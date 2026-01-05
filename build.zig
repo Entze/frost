@@ -102,18 +102,12 @@ test "formatTargetName: basic target without ABI" {
     const allocator = std.testing.allocator;
 
     // Create a mock target
+    const os = std.Target.Os{ .tag = .linux, .version_range = .{ .none = {} } };
     const target = std.Build.ResolvedTarget{
         .query = .{},
         .result = .{
-            .cpu = .{
-                .arch = .x86_64,
-                .model = &std.Target.x86.cpu.baseline,
-                .features = std.Target.x86.featureSet(&.{}),
-            },
-            .os = .{
-                .tag = .linux,
-                .version_range = .{ .none = {} },
-            },
+            .cpu = std.Target.Cpu.baseline(.x86_64, os),
+            .os = os,
             .abi = .none,
             .ofmt = .elf,
             .dynamic_linker = std.Target.DynamicLinker.none,
@@ -130,18 +124,12 @@ test "formatTargetName: basic target without ABI" {
 test "formatTargetName: target with ABI" {
     const allocator = std.testing.allocator;
 
+    const os = std.Target.Os{ .tag = .linux, .version_range = .{ .none = {} } };
     const target = std.Build.ResolvedTarget{
         .query = .{},
         .result = .{
-            .cpu = .{
-                .arch = .aarch64,
-                .model = &std.Target.aarch64.cpu.generic,
-                .features = std.Target.aarch64.featureSet(&.{}),
-            },
-            .os = .{
-                .tag = .linux,
-                .version_range = .{ .none = {} },
-            },
+            .cpu = std.Target.Cpu.baseline(.aarch64, os),
+            .os = os,
             .abi = .musl,
             .ofmt = .elf,
             .dynamic_linker = std.Target.DynamicLinker.none,
@@ -158,18 +146,12 @@ test "formatTargetName: target with ABI" {
 test "formatTargetName: with extension" {
     const allocator = std.testing.allocator;
 
+    const os = std.Target.Os{ .tag = .windows, .version_range = .{ .none = {} } };
     const target = std.Build.ResolvedTarget{
         .query = .{},
         .result = .{
-            .cpu = .{
-                .arch = .x86_64,
-                .model = &std.Target.x86.cpu.baseline,
-                .features = std.Target.x86.featureSet(&.{}),
-            },
-            .os = .{
-                .tag = .windows,
-                .version_range = .{ .none = {} },
-            },
+            .cpu = std.Target.Cpu.baseline(.x86_64, os),
+            .os = os,
             .abi = .gnu,
             .ofmt = .coff,
             .dynamic_linker = std.Target.DynamicLinker.none,
@@ -187,18 +169,12 @@ test "formatTargetName: with std.testing.FailingAllocator should return error" {
     var failing_allocator = std.testing.FailingAllocator.init(std.testing.allocator, .{ .fail_index = 0 });
     const allocator = failing_allocator.allocator();
 
+    const os = std.Target.Os{ .tag = .linux, .version_range = .{ .none = {} } };
     const target = std.Build.ResolvedTarget{
         .query = .{},
         .result = .{
-            .cpu = .{
-                .arch = .x86_64,
-                .model = &std.Target.x86.cpu.baseline,
-                .features = std.Target.x86.featureSet(&.{}),
-            },
-            .os = .{
-                .tag = .linux,
-                .version_range = .{ .none = {} },
-            },
+            .cpu = std.Target.Cpu.baseline(.x86_64, os),
+            .os = os,
             .abi = .none,
             .ofmt = .elf,
             .dynamic_linker = std.Target.DynamicLinker.none,
@@ -213,18 +189,12 @@ test "formatTargetName: with FailingAllocator on second allocation should return
     var failing_allocator = std.testing.FailingAllocator.init(std.testing.allocator, .{ .fail_index = 1 });
     const allocator = failing_allocator.allocator();
 
+    const os = std.Target.Os{ .tag = .windows, .version_range = .{ .none = {} } };
     const target = std.Build.ResolvedTarget{
         .query = .{},
         .result = .{
-            .cpu = .{
-                .arch = .x86_64,
-                .model = &std.Target.x86.cpu.baseline,
-                .features = std.Target.x86.featureSet(&.{}),
-            },
-            .os = .{
-                .tag = .windows,
-                .version_range = .{ .none = {} },
-            },
+            .cpu = std.Target.Cpu.baseline(.x86_64, os),
+            .os = os,
             .abi = .gnu,
             .ofmt = .coff,
             .dynamic_linker = std.Target.DynamicLinker.none,
@@ -427,9 +397,19 @@ pub fn build(b: *std.Build) void {
     });
     const run_exe_tests = b.addRunArtifact(exe_tests);
 
+    const build_tests = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("build.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    const run_build_tests = b.addRunArtifact(build_tests);
+
     const test_step = b.step("test", "Run tests");
     test_step.dependOn(&run_mod_tests.step);
     test_step.dependOn(&run_exe_tests.step);
+    test_step.dependOn(&run_build_tests.step);
 
     // Step 6: release - Build for all supported targets
     const release_profile = b.option(
