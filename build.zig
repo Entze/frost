@@ -406,10 +406,21 @@ pub fn build(b: *std.Build) void {
     });
     const run_build_tests = b.addRunArtifact(build_tests);
 
+    const changelog_tests = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("scripts/changelog.zig"),
+            .target = target,
+            .optimize = optimize,
+            .link_libc = true,
+        }),
+    });
+    const run_changelog_tests = b.addRunArtifact(changelog_tests);
+
     const test_step = b.step("test", "Run tests");
     test_step.dependOn(&run_mod_tests.step);
     test_step.dependOn(&run_exe_tests.step);
     test_step.dependOn(&run_build_tests.step);
+    test_step.dependOn(&run_changelog_tests.step);
 
     // Step 6: release - Build for all supported targets
     const release_profile = b.option(
