@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.1.17 (2026-01-05)
+
+- Implemented extractVersionSection function for changelog parsing
+- Added helper functions determineVersion and extractContentForVersion
+- Supports three version resolution methods: explicit parameter, VERSION env var, and GITHUB_REF env var
+
 ## 0.1.16 (2026-01-04)
 
 - Added comprehensive test suite for extractVersionSection function
