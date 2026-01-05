@@ -1,4 +1,0 @@
-PATCH
-- Added build.zig tests to zig build test step
-- Fixed CPU model API references in build.zig test code
-- Consolidated Zig test execution through zig build test
