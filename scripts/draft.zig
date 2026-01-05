@@ -402,25 +402,35 @@ fn determineVersion(
 
     // Use explicit version if provided
     if (explicit_version) |v| {
+        assert(v.len > 0); // Postcondition: returned version is never empty
         return v;
     }
 
     // Try VERSION environment variable
     if (std.process.getEnvVarOwned(allocator, "VERSION")) |v| {
-        return v;
-    } else |_| {
-        // Try GITHUB_REF environment variable
-        if (std.process.getEnvVarOwned(allocator, "GITHUB_REF")) |github_ref| {
-            defer allocator.free(github_ref);
+        if (v.len > 0) {
+            assert(v.len > 0); // Postcondition: returned version is never empty
+            return v;
+        }
+        // VERSION env var is empty, free and continue to next source
+        allocator.free(v);
+    } else |_| {}
 
-            // Parse GITHUB_REF format: "refs/tags/v{version}"
-            const prefix = "refs/tags/v";
-            if (std.mem.startsWith(u8, github_ref, prefix)) {
-                const version_part = github_ref[prefix.len..];
-                return allocator.dupe(u8, version_part);
+    // Try GITHUB_REF environment variable
+    if (std.process.getEnvVarOwned(allocator, "GITHUB_REF")) |github_ref| {
+        defer allocator.free(github_ref);
+
+        // Parse GITHUB_REF format: "refs/tags/v{version}"
+        const prefix = "refs/tags/v";
+        if (std.mem.startsWith(u8, github_ref, prefix)) {
+            const version_part = github_ref[prefix.len..];
+            if (version_part.len > 0) {
+                const result = try allocator.dupe(u8, version_part);
+                assert(result.len > 0); // Postcondition: returned version is never empty
+                return result;
             }
-        } else |_| {}
-    }
+        }
+    } else |_| {}
 
     // No version found
     return ChangelogError.VersionNotSpecified;
@@ -449,7 +459,7 @@ fn extractContentForVersion(
 
     var lines = std.mem.splitScalar(u8, content, '\n');
     var found_version = false;
-    var content_lines: std.ArrayListAligned(u8, null) = .{};
+    var content_lines: std.ArrayList(u8) = .empty;
     defer content_lines.deinit(allocator);
 
     while (lines.next()) |line| {
