@@ -1,0 +1,4 @@
+PATCH
+- Reorganized changelog CLI to scripts/cli/changelog/extract.zig
+- Converted release:extract-changelog to TOML-based mise task
+- Simplified task implementation to 3 lines

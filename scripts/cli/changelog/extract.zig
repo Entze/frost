@@ -4,7 +4,7 @@
 //! supporting the same interface as the bash-based mise task.
 
 const std = @import("std");
-const changelog = @import("changelog.zig");
+const changelog = @import("changelog");
 
 /// Prints usage information to stderr.
 fn printUsage(program_name: []const u8) void {

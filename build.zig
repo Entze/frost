@@ -458,13 +458,24 @@ pub fn build(b: *std.Build) void {
     }
 
     // Step 7: changelog-section-extract - Extract version section from changelog
+    // Create changelog module
+    const changelog_mod = b.createModule(.{
+        .root_source_file = b.path("scripts/changelog.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+
     const changelog_cli = b.addExecutable(.{
         .name = "changelog-extract",
         .root_module = b.createModule(.{
-            .root_source_file = b.path("scripts/changelog_cli.zig"),
+            .root_source_file = b.path("scripts/cli/changelog/extract.zig"),
             .target = target,
             .optimize = optimize,
             .link_libc = true,
+            .imports = &.{
+                .{ .name = "changelog", .module = changelog_mod },
+            },
         }),
     });
 
