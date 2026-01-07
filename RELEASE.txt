@@ -1,0 +1,2 @@
+PATCH
+Fixed example in `mise-task.instructions.md` to correctly show how usage is invoked.
