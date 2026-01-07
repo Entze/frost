@@ -122,23 +122,21 @@ set -euo pipefail
 
 ```bash
 #!/usr/bin/env bash
-#MISE description="Deploy with arguments"
-#MISE usage=<<EOF
-arg "<environment>"
-flag "--dry-run"
-option "--timeout <seconds>" default="300"
-EOF
-set -euo pipefail
+set -e
 
-# Access via environment variables:
-# - $1, $2, etc. for positional args
-# - $USAGE_DRY_RUN for flags (true/false)
-# - $USAGE_TIMEOUT for options
+#USAGE flag "-c --clean" help="Clean the build directory before building"
+#USAGE flag "-p --profile <profile>" help="Build with the specified profile" default="debug" {
+#USAGE   choices "debug" "release"
+#USAGE }
+#USAGE flag "-u --user <user>" help="The user to build for"
+#USAGE complete "user" run="mycli users"
+#USAGE arg "<target>" help="The target to build"
 
-if [ "${USAGE_DRY_RUN:-false}" = "true" ]; then
-  echo "Dry run mode"
+if [ "${usage_clean:-false}" = "true" ]; then
+  cargo clean
 fi
-echo "Deploying to $1 with timeout ${USAGE_TIMEOUT}s"
+
+cargo build --profile "${usage_profile?}" --target "${usage_target?}"```
 ```
 
 **Directory structure creates namespaces:**
