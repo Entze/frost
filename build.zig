@@ -406,10 +406,21 @@ pub fn build(b: *std.Build) void {
     });
     const run_build_tests = b.addRunArtifact(build_tests);
 
+    const changelog_tests = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("scripts/changelog.zig"),
+            .target = target,
+            .optimize = optimize,
+            .link_libc = true,
+        }),
+    });
+    const run_changelog_tests = b.addRunArtifact(changelog_tests);
+
     const test_step = b.step("test", "Run tests");
     test_step.dependOn(&run_mod_tests.step);
     test_step.dependOn(&run_exe_tests.step);
     test_step.dependOn(&run_build_tests.step);
+    test_step.dependOn(&run_changelog_tests.step);
 
     // Step 6: release - Build for all supported targets
     const release_profile = b.option(
@@ -445,6 +456,38 @@ pub fn build(b: *std.Build) void {
         const install_release_lib_dynamic = b.addInstallArtifact(release_lib_dynamic, .{});
         release_step.dependOn(&install_release_lib_dynamic.step);
     }
+
+    // Step 7: changelog-section-extract - Extract version section from changelog
+    // Create changelog module
+    const changelog_mod = b.createModule(.{
+        .root_source_file = b.path("scripts/changelog.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+
+    const changelog_cli = b.addExecutable(.{
+        .name = "changelog-extract",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("scripts/cli/changelog/extract.zig"),
+            .target = target,
+            .optimize = optimize,
+            .link_libc = true,
+            .imports = &.{
+                .{ .name = "changelog", .module = changelog_mod },
+            },
+        }),
+    });
+
+    const changelog_extract_step = b.step("changelog-section-extract", "Extract version section from changelog");
+    const run_changelog_cli = b.addRunArtifact(changelog_cli);
+
+    // Pass through command-line arguments
+    if (b.args) |args| {
+        run_changelog_cli.addArgs(args);
+    }
+
+    changelog_extract_step.dependOn(&run_changelog_cli.step);
 
     // Existing run step
     const run_step = b.step("run", "Run the app");

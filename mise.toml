@@ -65,6 +65,15 @@ run = "zig build release --summary all"
 sources = ["src/**/*.zig", "build.zig", "build.zig.zon"]
 outputs = ["zig-out/frost-*"]
 
+[tasks."release:extract-changelog"]
+description = "Extract changelog section for the current release version"
+usage = '''
+arg "<changelog>" help="Path to CHANGELOG.md file" default="CHANGELOG.md"
+'''
+run = '''
+zig build changelog-section-extract -- {{ usage.changelog }} > release_notes.txt && cat release_notes.txt
+'''
+
 [tasks.test]
 description = "Run all tests"
 depends = ["test:*"]
@@ -87,7 +96,9 @@ description = "Test the extract-changelog task"
 run = "mise run release:test-extract-changelog"
 run_windows = "echo Warning: test-extract-changelog test cannot run on Windows (requires bash) && exit 0"
 sources = [
-  ".mise/tasks/release/extract-changelog",
+  "mise.toml",
+  "scripts/cli/changelog/extract.zig",
+  "scripts/changelog.zig",
   ".mise/tasks/release/test-extract-changelog",
 ]
 
